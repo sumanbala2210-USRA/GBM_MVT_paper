@@ -76,8 +76,12 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
         if not campaign.get('enabled', False):
             continue 
         sim_type = campaign.get('type')
+        pulses_to_run = campaign.get('pulses_to_run', [])
+        if 'complex_pulse' in pulses_to_run and isinstance(pulses_to_run, list):
+            # Ensure 'complex_pulse' is the only entry if present
+            pulses_to_run = ['complex_pulse']
 
-        for pulse_config in campaign.get('pulses_to_run', []):
+        for pulse_config in pulses_to_run:
             pulse_shape = pulse_config if isinstance(pulse_config, str) else list(pulse_config.keys())[0]
             
             # --- TOP-LEVEL SWITCH for Assembly vs. Standard Mode ---

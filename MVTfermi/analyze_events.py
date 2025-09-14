@@ -76,9 +76,14 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
         if not campaign.get('enabled', False):
             continue 
         sim_type = campaign.get('type')
+        pulses_to_run = campaign.get('pulses_to_run', [])
+        if 'complex_pulse' in pulses_to_run and isinstance(pulses_to_run, list):
+            # Ensure 'complex_pulse' is the only entry if present
+            pulses_to_run = ['complex_pulse']
 
-        for pulse_config in campaign.get('pulses_to_run', []):
+        for pulse_config in pulses_to_run:
             pulse_shape = pulse_config if isinstance(pulse_config, str) else list(pulse_config.keys())[0]
+            
             
             # --- TOP-LEVEL SWITCH for Assembly vs. Standard Mode ---
             if pulse_shape == 'complex_pulse':
@@ -179,41 +184,6 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
     
     #print_nested_dict(base_params)
 
-    # <<< Define standard keys and defaults from your original script >>>
-    ALL_PULSE_PARAMS = ['sigma', 'center_time', 'width', 'peak_time_ratio', 'start_time', 'rise_time', 'decay_time']
-    DEFAULT_PARAM_VALUE = -999
-
-    STANDARD_KEYS = [
-        # Core Parameters
-        'sim_type', 'pulse_shape', 'bin_width_ms', 'peak_amplitude', 'position', 'angle', 'trigger',
-        'sim_det', 'base_det', 'analysis_det', 'num_analysis_det', 'background_level',
-        # Run Summary
-        'total_sim', 'successful_runs', 'failed_runs',
-        # MVT Stats
-        'median_mvt_ms', 'mvt_err_lower', 'mvt_err_upper', 'all_median_mvt_ms', 'all_mvt_err_lower', 'all_mvt_err_upper',
-        # Mean Counts (from any analysis type)
-        'mean_src_counts', 'mean_bkgd_counts', 'mean_src_counts_total', 'mean_src_counts_template', 
-        'mean_src_counts_feature', 'mean_bkgd_counts_feature_local', 'mean_back_avg_cps',
-        # Fluence SNR (from any analysis type)
-        'S_flu', 'S_flu_total', 'S_flu_template', 'S_flu_feature_avg', 'S_flu_feature_local',
-        # Multi-timescale SNR (Total Pulse - simple runs will use this)
-        'S16', 'S32', 'S64', 'S128', 'S256',
-        # Multi-timescale SNR (Complex Pulse Breakdown)
-        'S16_total', 'S32_total', 'S64_total', 'S128_total', 'S256_total',
-        'S16_template', 'S32_template', 'S64_template', 'S128_template', 'S256_template',
-        'S16_feature', 'S32_feature', 'S64_feature', 'S128_feature', 'S256_feature',
-    ]
-
-
-    # ==================== START CHANGE 1 ====================
-    # If it's a complex pulse, dynamically add keys for the feature pulse parameters.
-    # This ensures they have a column in the final summary CSV.
-    if base_params['pulse_shape'] == 'complex_pulse':
-        extra_pulse_config = analysis_settings.get('extra_pulse', {})
-        # Create descriptive keys like 'sigma_feature', 'peak_amplitude_feature', etc.
-        feature_param_keys = [f"{key}_feature" for key in extra_pulse_config if key != 'pulse_shape']
-        STANDARD_KEYS.extend(feature_param_keys)
-    # ===================== END CHANGE 1 =====================
 
     pulse_shape = base_params['pulse_shape']
 
@@ -304,34 +274,41 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
             selection_str = str(analysis_det)
 
         analysis_input['analysis_det'] = analysis_det
+        analysis_input['base_det'] = base_dets
 
         if base_params['pulse_shape'] == 'complex_pulse':
-            iteration_results, NN = GBM_MVT_analysis_complex(input_info=analysis_input,
+            final_summary_list = GBM_MVT_analysis_complex(input_info=analysis_input,
                     output_info = { 'file_path': output_analysis_path,
-                                'file_info': param_dir.name})
+                                'file_info': param_dir.name,
+                                'selection_str': selection_str})
         else:
-            iteration_results, NN = GBM_MVT_analysis_det(input_info=analysis_input,
+            final_summary_list = GBM_MVT_analysis_det(input_info=analysis_input,
                     output_info = { 'file_path': output_analysis_path,
-                                'file_info': param_dir.name})
-        
+                                'file_info': param_dir.name,
+                                'selection_str': selection_str})
+
     else:
         base_dets = analysis_det = sim_params['det']
+        analysis_input['analysis_det'] = analysis_det
+        analysis_input['base_det'] = base_dets
         if base_params['pulse_shape'] == 'complex_pulse':
-            iteration_results, NN = Function_MVT_analysis_complex(input_info=analysis_input,
+            final_summary_list = Function_MVT_analysis_complex(input_info=analysis_input,
             output_info={ 'file_path': output_analysis_path,
-                         'file_info': param_dir.name})
+                         'file_info': param_dir.name,
+                         'selection_str': selection_str})
         else:
          # sim_type == 'function'
-            iteration_results, NN = Function_MVT_analysis(input_info=analysis_input,
+            final_summary_list = Function_MVT_analysis(input_info=analysis_input,
                 output_info={ 'file_path': output_analysis_path,
-                            'file_info': param_dir.name})
+                            'file_info': param_dir.name,
+                            'selection_str': selection_str})
 
-
+    """
     # --- 3. Aggregate Results (This logic is common to both data types) ---
-    if not iteration_results: return []
+    if not final_summary_list: return []
     final_summary_list = []
 
-    detailed_df = pd.DataFrame(iteration_results)
+    detailed_df = pd.DataFrame(final_summary_list)
     detailed_df.to_csv(output_analysis_path / f"Detailed_{param_dir.name}_{selection_str}.csv", index=False)
 
     write_yaml(analysis_input, output_analysis_path / f"Params_{param_dir.name}_{selection_str}.yaml")
@@ -408,53 +385,8 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
             plt.close(fig)
         except Exception as e:
             logging.error(f"Error creating MVT distribution plot for {param_dir.name} at bin width {bin_width}ms: {e}")
+    """
 
-
-        result_data = {**base_params,
-                       'bin_width_ms': bin_width,
-                       'total_sim': NN,
-                       'successful_runs': len(valid_runs),
-                       'failed_runs': len(detailed_df) - len(valid_runs),
-                       'median_mvt_ms': round(median_mvt, 4),
-                       'mvt_err_lower': round(median_mvt - p16, 4),
-                       'mvt_err_upper': round(p84 - median_mvt, 4),
-                       'all_median_mvt_ms': round(all_median_mvt, 4),
-                       'all_mvt_err_lower': round(all_median_mvt - all_p16, 4),
-                       'all_mvt_err_upper': round(all_p84 - all_median_mvt, 4),
-                       'sim_det': sim_params['det'],
-                       'base_det': base_dets,
-                       'analysis_det': analysis_det,
-                       'num_analysis_det': len(analysis_det) if isinstance(analysis_det, list) else 1,
-                       'trigger': sim_params.get('trigger_number', 9999999),
-                       'angle': sim_params.get('angle', 0),
-                       'background_level': sim_params.get('background_level'),
-                       'position': base_params.get('position', 0)
-                       }
-        
-        # ==================== START CHANGE 2 ====================
-        # If it's a complex pulse, add the specific feature parameters to the summary.
-        # These will be picked up by the final loop because their keys were added to STANDARD_KEYS.
-        if result_data.get('pulse_shape') == 'complex_pulse':
-            extra_pulse_config = analysis_settings.get('extra_pulse', {})
-            feature_params_for_summary = {f"{key}_feature": val for key, val in extra_pulse_config.items() if key != 'pulse_shape'}
-            result_data.update(feature_params_for_summary)
-
-        for col in valid_runs.columns:
-            if col.startswith(('S_flu', 'S1', 's2', 'S3', 'S6', 'bkgd_counts', 'src_counts', 'back_avg_cps')):
-                new_key = f'mean_{col}' if 'counts' in col or 'cps' in col else col
-                result_data[new_key] = round(valid_runs[col].mean(), 2)
-
-    else:
-        pass
-    final_dict = {}
-    for key in STANDARD_KEYS:
-        final_dict[key] = result_data.get(key, -999)
-    
-    # Add all possible pulse parameter keys, using the default value if a key is not in this run's result_data
-    for key in ALL_PULSE_PARAMS:
-        final_dict[key] = result_data.get(key, DEFAULT_PARAM_VALUE)
-    
-    final_summary_list.append(final_dict)
     return final_summary_list
 
 

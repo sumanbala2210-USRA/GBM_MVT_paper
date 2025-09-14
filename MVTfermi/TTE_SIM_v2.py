@@ -53,6 +53,8 @@ from SIM_lib import run_mvt_in_subprocess, convert_det_to_list, _create_param_di
 from astropy.io.fits.verify import VerifyWarning
 warnings.simplefilter('ignore', category=VerifyWarning)
 
+DEFAULT_PARAM_VALUE = -999
+
 #warnings.simplefilter('ignore', VerifyWarning)
 
 def sim_gbm_name_format(trigger_number, det, name_key, r_seed):
@@ -427,8 +429,6 @@ def _calculate_multi_timescale_snr(
             continue
 
     return snr_results
-
-
 
 
 def create_final_plot(
@@ -884,6 +884,385 @@ def create_final_gbm_plot(
             print(f"Failed to generate representative GBM plot. Error: {e}")
 
 
+def analysis_mvt_results_to_dataframe(
+    mvt_results: List[List[Dict]],
+    output_info: Path,
+    bin_width_ms: float,
+    total_runs: int,
+):
+    """
+    Analyzes a collection of time-resolved MVT results from multiple simulations.
+
+    This function flattens the nested data, groups it by time, calculates
+    MVT statistics (median, C.I.) for each time step, generates distribution
+    plots for each step, and returns a final summary DataFrame.
+
+    Args:
+        mvt_results (List[List[Dict]]): The nested list of MVT results.
+        output_info (Dict[str, any]): A dictionary containing output metadata:
+            - 'output_path' (Path): The directory to save results.
+            - 'param_dir_name' (str): The name of the simulation parameter set.
+            - 'selection_str' (str): The detector selection string for file naming.
+        bin_width_ms (float): The bin width used in the analysis in milliseconds.
+        total_runs (int): The total number of simulation iterations (NN_analysis).
+
+    Returns:
+        pd.DataFrame: A DataFrame summarizing the MVT statistics for each time step.
+    """
+    output_path = output_info['file_path']
+    try:
+        name = output_info['file_info']
+    except:
+        name = output_info['trigger_number']
+    
+    selection_str = output_info['selection_str']
+
+    detailed_df = pd.DataFrame(mvt_results)
+    detailed_df.to_csv(output_path / f"Detailed_{name}_{selection_str}s_{bin_width_ms}ms.csv", index=False)
+
+    # Loop through the DataFrame grouped by the analysis bin width
+    valid_mvts = detailed_df[detailed_df['mvt_err_ms'] > 0]
+    #print(len(valid_runs), "valid runs out of", NN, "for", param_dir.name, "at bin width", bin_width, "ms")
+            # All runs where MVT produced a positive timescale
+    all_dist_flag = True
+    try:
+        all_positive_runs = detailed_df[(detailed_df['mvt_ms'] > 0) & (detailed_df['mvt_ms'] < 1e5)]
+        all_p16, all_median_mvt, all_p84 = np.percentile(all_positive_runs['mvt_ms'], [16, 50, 84])
+    except:
+        all_dist_flag = False
+        all_p16, all_median_mvt, all_p84 = (-100, -100, -100)
+
+    valid_flag = False
+    if len(valid_mvts) >= 2:
+        valid_flag = True
+        # Statistics are calculated ONLY on the valid runs
+        p16, median_mvt, p84 = np.percentile(valid_mvts['mvt_ms'], [16, 50, 84])
+        # Use the 68% confidence interval width as a robust measure of "sigma"
+        ci_width = p84 - p16
+        # Set plot limits to be wide enough to see the distribution, but not the extreme outliers
+        data_min = max(0, p16 - 3 * ci_width)
+        data_max = p84 + 10 * ci_width #
+        #data_max = np.percentile(all_positive_runs['mvt_ms'], 99.5) if not all_positive_runs.empty else p84 + 3 * ci_width
+    else:
+        p16, median_mvt, p84 = (-100, -100, -100)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+        # --- Create the Enhanced MVT Distribution Plot ---
+    if all_dist_flag:
+        try:
+            # <<< 2. Plot the background histogram of ALL non-failed runs in gray >>>
+            if not all_positive_runs.empty and all_dist_flag:
+                ax.hist(all_positive_runs['mvt_ms'], bins=30, density=True, 
+                            label=f'All Runs w/ MVT > 0 ({len(all_positive_runs)}/{total_runs})',
+                            color='gray', alpha=0.5, histtype='stepfilled', edgecolor='none', zorder=1)
+                # Overlay the statistics from the valid runs
+                ax.axvline(all_median_mvt, color='k', linestyle='-', lw=1.0,
+                        label=f"Median = {all_median_mvt:.3f} ms")
+                #ax.axvspan(all_p16, all_p84, color='k', alpha=0.1, hatch='///',
+            #label=f"68% C.I. [{all_p16:.3f}, {all_p84:.3f}]")
+
+                ax.axvspan(all_p16, all_p84, color='gray', alpha=0.1,
+                        label=f"68% C.I. [{all_p16:.3f}, {all_p84:.3f}]")
+        except Exception as e:
+            logging.error(f"Error creating background MVT distribution plot for {name} at bin width {bin_width_ms}ms: {e}")
+            all_dist_flag = False
+
+    # <<< 3. Plot the main histogram of VALID runs (err > 0) on top >>>
+    if valid_flag:
+        try:
+            ax.hist(valid_mvts['mvt_ms'], bins=30, density=True, 
+                    label=f'Valid Runs w/ Err > 0 ({len(valid_mvts)}/{total_runs})',
+                    color='steelblue', histtype='stepfilled', edgecolor='black', zorder=2) 
+
+            # Overlay the statistics from the valid runs
+            ax.axvline(median_mvt, color='firebrick', linestyle='-', lw=2.5,
+                    label=f"Median = {median_mvt:.3f} ms")
+            #ax.axvspan(p16, p84, color='darkorange', alpha=0.3,
+            #        label=f"68% C.I. [{p16:.3f}, {p84:.3f}]")
+            ax.axvline(p16, color='orange', linestyle='--', lw=1)
+            ax.axvline(p84, color='orange', linestyle='--', lw=1)
+            ax.axvspan(p16, p84, color='darkorange', alpha=0.1, hatch='///',
+                    label=f"68% C.I. [{p16:.3f}, {p84:.3f}]")
+                
+            auto_min, auto_max = ax.get_xlim()
+            final_min = max(auto_min, data_min)
+            final_max = min(auto_max, data_max)
+
+            # Formatting
+            ax.set_xlim(final_min, final_max)
+        except Exception as e:
+            logging.error(f"Error creating MVT distribution plot for {name} at bin width {bin_width_ms}ms: {e}")
+    
+    if valid_flag or all_dist_flag:
+        ax.set_ylim(bottom=0)
+        ax.set_title(f"MVT: {name} {selection_str}s\nBin Width: {bin_width_ms} ms", fontsize=12)
+        ax.set_xlabel("Minimum Variability Timescale (ms)")
+        ax.set_ylabel("Probability Density")
+        ax.legend()
+        fig.tight_layout()
+        plt.savefig(output_path / f"MVT_dis_{name}_{selection_str}s_{round(bin_width_ms, 2)}ms.png", dpi=300)
+    plt.close(fig)
+ 
+
+
+    MVT_summary = {
+        'median_mvt_ms': round(median_mvt, 4),
+        'mvt_err_lower': round(median_mvt - p16, 4),
+        'mvt_err_upper': round(p84 - median_mvt, 4),
+        'all_median_mvt_ms': round(all_median_mvt, 4),
+        'all_mvt_err_lower': round(all_median_mvt - all_p16, 4),
+        'all_mvt_err_upper': round(all_p84 - all_median_mvt, 4),
+        'successful_runs': len(valid_mvts),
+        'total_sim': total_runs,
+        'failed_runs': len(detailed_df) - len(valid_mvts),
+    }
+
+    snr_keys = {}
+
+    if valid_flag:
+        for col in valid_mvts.columns:
+            if col.startswith(('S_flu', 'S1', 's2', 'S3', 'S6', 'bkgd_counts', 'src_counts', 'back_avg_cps')):
+                new_key = f'mean_{col}' if 'counts' in col or 'cps' in col else col
+                snr_keys[new_key] = round(valid_mvts[col].mean(), 2)
+    else:
+        for col in all_positive_runs.columns:
+            if col.startswith(('S_flu', 'S1', 's2', 'S3', 'S6', 'bkgd_counts', 'src_counts', 'back_avg_cps')):
+                new_key = f'mean_{col}' if 'counts' in col or 'cps' in col else col
+                snr_keys[new_key] = round(all_positive_runs[col].mean(), 2)
+
+    #print(MVT_summary)
+    #final_MVT_csv_path = output_path / f"MVT_{trigger_number}_default_{bin_width_ms}ms.csv"
+    #MVT_summary_df = pd.DataFrame(MVT_summary)
+    #MVT_summary_df.to_csv(final_MVT_csv_path, index=False)
+
+    return MVT_summary, snr_keys
+
+
+def create_final_result_dict(input_info: Dict,
+                             MVT_summary: Dict,
+                             snr_keys: dict,
+                             snr_MVT: float,
+                             snr_mvt_position: float) -> Dict:
+
+    base_params = input_info['base_params']
+    sim_params_file = input_info['sim_par_file']
+
+    if type(sim_params_file) is dict:
+        sim_params = sim_params_file
+    else:
+        sim_params = yaml.safe_load(open(sim_params_file, 'r'))
+    bin_width = input_info['bin_width_ms']
+    base_dets = input_info['base_det']
+    analysis_det = input_info['analysis_det']
+    analysis_settings = input_info.get('analysis_settings', {})
+
+    # <<< Define standard keys and defaults from your original script >>>
+    ALL_PULSE_PARAMS = ['sigma', 'center_time', 'width', 'peak_time_ratio', 'start_time', 'rise_time', 'decay_time']
+
+    STANDARD_KEYS = [
+        # Core Parameters
+        'sim_type', 'pulse_shape', 'bin_width_ms', 'peak_amplitude', 'position', 'angle', 'trigger',
+        'sim_det', 'base_det', 'analysis_det', 'num_analysis_det', 'background_level',
+        # Run Summary
+        'total_sim', 'successful_runs', 'failed_runs',
+        # MVT Stats
+        'median_mvt_ms', 'mvt_err_lower', 'mvt_err_upper', 'all_median_mvt_ms', 'all_mvt_err_lower', 'all_mvt_err_upper',
+        # Mean Counts (from any analysis type)
+        'mean_src_counts', 'mean_bkgd_counts', 'mean_src_counts_total', 'mean_src_counts_template', 
+        'mean_src_counts_feature', 'mean_bkgd_counts_feature_local', 'mean_back_avg_cps', 
+        # Fluence SNR (from any analysis type)
+        'MVT_snr', 'MVT_snr_position',
+        'S_flu', 'S_flu_total', 'S_flu_template', 'S_flu_feature_avg', 'S_flu_feature_local',
+        # Multi-timescale SNR (Total Pulse - simple runs will use this)
+        'S16', 'S32', 'S64', 'S128',
+        # Multi-timescale SNR (Complex Pulse Breakdown)
+        'S16_total', 'S32_total', 'S64_total', 'S128_total',
+        'S16_template', 'S32_template', 'S64_template', 'S128_template', 
+        'S16_feature', 'S32_feature', 'S64_feature', 'S128_feature', 
+    ]
+
+
+    # ==================== START CHANGE 1 ====================
+    # If it's a complex pulse, dynamically add keys for the feature pulse parameters.
+    # This ensures they have a column in the final summary CSV.
+    if base_params['pulse_shape'] == 'complex_pulse':
+        extra_pulse_config = analysis_settings.get('extra_pulse', {})
+        # Create descriptive keys like 'sigma_feature', 'peak_amplitude_feature', etc.
+        feature_param_keys = [f"{key}_feature" for key in extra_pulse_config if key != 'pulse_shape']
+        STANDARD_KEYS.extend(feature_param_keys)
+    # ===================== END CHANGE 1 =====================
+
+    result_data = {**base_params, **MVT_summary,
+                    'MVT_snr': snr_MVT,
+                    'MVT_snr_position': snr_mvt_position,
+                    'bin_width_ms': bin_width,
+                    'sim_det': sim_params['det'],
+                    'base_det': base_dets,
+                    'analysis_det': analysis_det,
+                    'num_analysis_det': len(analysis_det) if isinstance(analysis_det, list) else 1,
+                    'trigger': sim_params.get('trigger_number', 9999999),
+                    'angle': sim_params.get('angle', 0),
+                    'background_level': sim_params.get('background_level'),
+                    'position': base_params.get('position', 0),
+                    **snr_keys
+                    }
+    
+    if result_data.get('pulse_shape') == 'complex_pulse':
+            extra_pulse_config = analysis_settings.get('extra_pulse', {})
+            feature_params_for_summary = {f"{key}_feature": val for key, val in extra_pulse_config.items() if key != 'pulse_shape'}
+            result_data.update(feature_params_for_summary)
+
+
+ 
+    final_dict = {}
+    for key in STANDARD_KEYS:
+        final_dict[key] = result_data.get(key, DEFAULT_PARAM_VALUE)
+    
+    # Add all possible pulse parameter keys, using the default value if a key is not in this run's result_data
+    for key in ALL_PULSE_PARAMS:
+        final_dict[key] = result_data.get(key, DEFAULT_PARAM_VALUE)
+    
+    return final_dict
+
+
+def compute_snr_for_mvt(input_info: Dict,
+                           output_info: Dict,
+                           mvt_ms: float,
+                           position = None):
+    
+    output_path = output_info['file_path']
+    try:
+        name = output_info['file_info']
+    except:
+        name = output_info['trigger_number']
+    
+    selection_str = output_info['selection_str']
+
+    sim_data_path = input_info['sim_data_path']
+    analysis_settings = input_info['analysis_settings']
+    src_event_files = sorted(sim_data_path.glob('*_src.npz'))
+    back_event_files = sorted(sim_data_path.glob('*_bkgd.npz'))
+    if not src_event_files or not back_event_files:
+        logging.error(f"No source or background event files found in {sim_data_path}")
+
+    sim_params_file = input_info['sim_par_file']
+
+    if type(sim_params_file) is dict:
+        sim_params = sim_params_file
+    else:
+        sim_params = yaml.safe_load(open(sim_params_file, 'r'))
+
+    data_src = np.load(src_event_files[0], allow_pickle=True)
+    data_back = np.load(back_event_files[0], allow_pickle=True)
+    #sim_params = data_src['params'].item()
+    
+    background_level = sim_params['background_level']
+    scale_factor = sim_params['scale_factor']
+  
+
+    t_start = sim_params['t_start']
+    t_stop = sim_params['t_stop']
+    det = sim_params.get('det', 'nn')
+    angle = sim_params.get('angle', 0)
+   
+    base_params = input_info['base_params']
+    NN_analysis = base_params['num_analysis']
+
+    source_event_realizations_all = data_src['realizations']
+    background_event_realizations = data_back['realizations']
+    #sim_params = data_src['params'].item()
+    
+    duration = sim_params['t_stop'] - sim_params['t_start']
+
+    iteration_results = []
+    iteration_position_results = []    
+
+    NN = len(source_event_realizations_all)
+    NN_back = len(background_event_realizations)
+    if NN != NN_back:
+        logging.warning(f"Mismatch in realization counts: {NN} (source) vs {NN_back} (background)")
+        return []
+    if NN < NN_analysis:
+        logging.warning(f"Insufficient realizations: {NN} (source) < {NN_analysis} (required)")
+        return []
+    
+    if NN_analysis < NN:
+        source_event_realizations = source_event_realizations_all[:NN_analysis]
+        NN = NN_analysis
+    else:
+        source_event_realizations = source_event_realizations_all
+
+    for i, source_events in enumerate(source_event_realizations):
+        try:
+            background_events = background_event_realizations[i]
+            total_events = np.sort(np.concatenate([source_events, background_events]))
+
+            total_bkgd_counts = len(background_events)
+
+            background_level_cps = total_bkgd_counts / duration
+            bin_width_s = mvt_ms / 1000.0
+            background_counts = background_level_cps * bin_width_s
+
+            # Loop through analysis bin width
+            
+            bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
+            counts, _ = np.histogram(total_events, bins=bins)
+            SNR_MVT = max(counts) / np.sqrt(background_counts) if background_counts > 0 else DEFAULT_PARAM_VALUE 
+
+            if position is not None:
+                try:
+                    # First, check if the requested position is within the valid time range of the bins
+                    if sim_params['t_start'] <= position < sim_params['t_stop']:
+                        
+                        # np.digitize finds the index of the bin that 'position' belongs to.
+                        # We subtract 1 because digitize gives an index for the 'bins' array (N+1 edges),
+                        # and we need the corresponding index for the 'counts' array (N values).
+                        bin_index = np.digitize(position, bins) - 1
+
+                        # A final safety check to ensure the index is valid for the counts array
+                        if 0 <= bin_index < len(counts):
+                            count_at_position = counts[bin_index]
+                            
+                            # Now, calculate SNR using the count from that specific bin
+                            SNR_MVT_position = count_at_position / np.sqrt(background_counts) if background_counts > 0 else DEFAULT_PARAM_VALUE 
+                        else:
+                            # This handles edge cases where the position might be exactly t_stop
+                            SNR_MVT_position = DEFAULT_PARAM_VALUE
+                    else:
+                        # If the position is outside the light curve's range, SNR is 0
+                        SNR_MVT_position = DEFAULT_PARAM_VALUE
+                        logging.warning(f"Requested position {position} is outside the analysis time range.")
+
+                except Exception as e:
+                    SNR_MVT_position = DEFAULT_PARAM_VALUE
+                    logging.error(f"Error finding count at position {position}: {e}", exc_info=True)
+            else:
+                SNR_MVT_position = DEFAULT_PARAM_VALUE 
+
+            iteration_position_results.append((SNR_MVT_position))
+            iteration_results.append(SNR_MVT)
+        except Exception as e:
+            logging.error(f"Error computing SNR for MVT in iteration {i}: {e}", exc_info=True)
+            continue
+    try:
+        mvt_snr_output = output_path / f"SNR_MVT_{name}_{selection_str}_{round(mvt_ms, 2)}.csv"
+        pd.DataFrame({'SNR_MVT': iteration_results, 'SNR_MVT_position': iteration_position_results}).to_csv(mvt_snr_output, index=False)
+    except Exception as e:
+        logging.error(f"Error saving SNR_MVT results to CSV: {e}", exc_info=True)
+    if iteration_results:
+        iteration_results_filtered = [snr for snr in iteration_results if snr > 0]
+        mean_snr_mvt = round(np.mean(iteration_results_filtered), 2)
+    else:
+        mean_snr_mvt = DEFAULT_PARAM_VALUE 
+
+    if position is not None and iteration_position_results:
+        iteration_position_results_filtered = [snr for snr in iteration_position_results if snr > 0]
+        mean_snr_mvt_position = round(np.mean(iteration_position_results_filtered), 2)
+    else:
+        mean_snr_mvt_position = DEFAULT_PARAM_VALUE
+    
+    return mean_snr_mvt, mean_snr_mvt_position
+
 
 
 def Function_MVT_analysis(input_info: Dict,
@@ -926,7 +1305,7 @@ def Function_MVT_analysis(input_info: Dict,
 
     source_event_realizations_all = data_src['realizations']
     background_event_realizations = data_back['realizations']
-    sim_params = data_src['params'].item()
+    #sim_params = data_src['params'].item()
     
     #background_level = sim_params['background_level']
     #scale_factor = sim_params['scale_factor']
@@ -1028,16 +1407,43 @@ def Function_MVT_analysis(input_info: Dict,
             iteration_results.append({'iteration': i + 1,
                                             'random_seed': sim_params['random_seed'] + i,
                                             'analysis_bin_width_ms': bin_width_ms,
-                                            'mvt_ms': -100,
-                                            'mvt_err_ms': -200,
-                                            'back_avg_cps': -100,
-                                            'bkgd_counts': -100,
-                                            'src_counts': -100,
-                                            'S_flu': -100,
+                                            'mvt_ms': DEFAULT_PARAM_VALUE,
+                                            'mvt_err_ms': DEFAULT_PARAM_VALUE,
+                                            'back_avg_cps': DEFAULT_PARAM_VALUE,
+                                            'bkgd_counts': DEFAULT_PARAM_VALUE,
+                                            'src_counts': DEFAULT_PARAM_VALUE,
+                                            'S_flu': DEFAULT_PARAM_VALUE,
                                             **base_params,
                                             **snr_dict})
-    return iteration_results, NN
+    final_summary_list = []
+    MVT_summary, snr_keys = analysis_mvt_results_to_dataframe(
+        mvt_results=iteration_results,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        total_runs=NN
+    )
 
+    mvt_ms = MVT_summary['median_mvt_ms']
+    try:
+        if mvt_ms > 0:
+            snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
+                                output_info=output_info,
+                                mvt_ms=mvt_ms)
+        else:
+            snr_MVT = DEFAULT_PARAM_VALUE
+            snr_mvt_position = DEFAULT_PARAM_VALUE
+    except Exception as e:
+        logging.error(f"Error computing SNR at MVT timescale: {e}")
+        snr_MVT = DEFAULT_PARAM_VALUE
+        snr_mvt_position = DEFAULT_PARAM_VALUE
+
+    final_result = create_final_result_dict(input_info,
+                             MVT_summary,
+                             snr_keys,
+                             snr_MVT=snr_MVT,
+                             snr_mvt_position=snr_mvt_position)
+    final_summary_list.append(final_result)
+    return final_summary_list
 
 
 
@@ -1158,16 +1564,42 @@ def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
             counts, _ = np.histogram(total_events, bins=bins)
             mvt_res = run_mvt_in_subprocess(counts=counts, bin_width_s=bin_width_s, haar_python_path=haar_python_path)
 
-            mvt_val = mvt_res['mvt_ms'] if mvt_res else -100
-            mvt_err = mvt_res['mvt_err_ms'] if mvt_res else -200
+            mvt_val = mvt_res['mvt_ms'] if mvt_res else DEFAULT_PARAM_VALUE
+            mvt_err = mvt_res['mvt_err_ms'] if mvt_res else DEFAULT_PARAM_VALUE
 
             iteration_results.append({ **base_iter_detail, 'analysis_bin_width_ms': bin_width_ms, 'mvt_ms': round(mvt_val, 4), 'mvt_err_ms': round(mvt_err, 4), **base_params })
 
         except Exception as e:
             logging.warning(f"Failed analysis on realization {i}. Error: {e}")
-            iteration_results.append({'iteration': i + 1, 'mvt_ms': -100, 'mvt_err_ms': -200, **base_params})
-            
-    return iteration_results, NN_analysis
+            iteration_results.append({'iteration': i + 1, 'mvt_ms': DEFAULT_PARAM_VALUE, 'mvt_err_ms': DEFAULT_PARAM_VALUE, **base_params})
+
+    final_summary_list = []
+    MVT_summary, snr_keys = analysis_mvt_results_to_dataframe(
+        mvt_results=iteration_results,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        total_runs=NN_analysis
+    )
+
+    mvt_ms = MVT_summary['median_mvt_ms']
+    try:
+        snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
+                               output_info=output_info,
+                               mvt_ms=mvt_ms,
+                               position=position_shift)
+    except Exception as e:
+        logging.error(f"Error computing SNR at MVT timescale: {e}")
+        snr_MVT = DEFAULT_PARAM_VALUE
+        snr_mvt_position = DEFAULT_PARAM_VALUE
+
+    final_result = create_final_result_dict(input_info,
+                             MVT_summary,
+                             snr_keys,
+                             snr_MVT=snr_MVT,
+                             snr_mvt_position=snr_mvt_position)
+    final_summary_list.append(final_result)
+
+    return final_summary_list
 
 
 
@@ -1349,6 +1781,8 @@ def Function_MVT_analysis_complex_time_resolved(input_info: Dict, output_info: D
             output_info=output_info,
             mvt_summary_df=mvt_summary_df # Pass the final MVT summary
         )
+        
+    
 
     return iteration_results, mvt_summary_df, NN_analysis
 
@@ -1400,7 +1834,7 @@ def analysis_mvt_time_resolved_results_to_dataframe(
     # --- Step 2: Group by each time step and calculate statistics ---
     time_resolved_summary = []
     for center_time, group in mvt_df.groupby('center_time_s'):
-        valid_mvts = group[group['mvt_err_s'] > 0]
+        valid_mvts = group[group['mvt_err_ms'] > 0]
 
         if len(valid_mvts) < 2:
             continue # Skip if there are not enough valid runs for statistics
@@ -1410,7 +1844,7 @@ def analysis_mvt_time_resolved_results_to_dataframe(
         start_time = valid_mvts['start_time_s'].mean()
         end_time = valid_mvts['end_time_s'].mean()
 
-        mvt_values_ms = valid_mvts['mvt_s'] * 1000
+        mvt_values_ms = valid_mvts['mvt_ms'] #* 1000
         p16, median_mvt, p84 = np.percentile(mvt_values_ms, [16, 50, 84])
         
         # --- Create a distribution plot for THIS time step ---
@@ -1418,8 +1852,8 @@ def analysis_mvt_time_resolved_results_to_dataframe(
             fig, ax = plt.subplots(figsize=(10, 6))
             
             # Use all positive MVT values for the background distribution
-            all_positive_runs_ms = group[group['mvt_s'] > 0]['mvt_s'] * 1000
-            
+            all_positive_runs_ms = group[group['mvt_ms'] > 0]['mvt_ms']
+
             if not all_positive_runs_ms.empty:
                  ax.hist(all_positive_runs_ms, bins=30, density=True,
                          label=f'All Runs w/ MVT > 0 ({len(all_positive_runs_ms)}/{total_runs})',
