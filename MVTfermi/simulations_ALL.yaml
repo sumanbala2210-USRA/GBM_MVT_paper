@@ -7,7 +7,7 @@ project_settings:
   # The base directory for all generated event files.
   data_path: '001_DATA' # where your simulation data will be stored
   results_path: '01_ANALYSIS_RESULTS' # where your analysis results will be stored
-  haar_python_path: "/Users/sbala/anaconda3/bin/python" # path to the Haar Python executable
+  haar_python_path: "/home/sbala/anaconda3/bin/python" # path to the Haar Python executable
   #pulse_path: 
 
 # ===================================================================
@@ -18,22 +18,22 @@ project_settings:
 pulse_definitions:
   gaussian:
     parameters:
-      sigma: [0.01, 0.005] #, 0.005, 0.02, 0.001] #, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-      #sigma: [0.05, 0.01] # [0.01, 0.05, 0.1, 0.5, 1.0]
+      sigma: [0.01] #[0.0001, 0.0003, 0.0005, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0 ]
     constants:
       center_time: 0.0
 
   triangular:
     parameters:
-      width: [0.01, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+      width: [0.01] #03, 0.0005, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0]
+      peak_time_ratio: [0.2, 0.5, 0.8]
     constants:
       center_time: 0.0
-      peak_time_ratio: 0.5
+      #peak_time_ratio: 0.5
 
   norris:
     parameters:
-      rise_time: [0.01, 0.005] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
-      decay_time: [0.01] #, 0.02, 0.05, 0.1, 0.2, 0.5]
+      rise_time: [0.001, 0.003, 0.01] #, 0.03, 0.1, 0.3] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+      decay_time: [0.001, 0.003, 0.01, 0.03, 0.05] #, 0.02, 0.05, 0.1, 0.2, 0.5]
     constants:
       start_time: 0.0
   
@@ -109,7 +109,7 @@ simulation_campaigns:
   enabled: true
 
   parameters:
-    peak_amplitude:  [1, 3, 5] # 20, 50] # 100, 200] #, 500]
+    peak_amplitude: [1000] # [0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200, 300, 500, 2000] # 100, 200] #, 500]
 
   constants:
     trigger_number: 99999999
@@ -121,13 +121,13 @@ simulation_campaigns:
     scale_factor: 1000
     random_seed: 37
     grid_resolution: 0.001
-    total_sim: 30
+    total_sim: 300
 
   # This campaign will only run the gaussian and norris simulations.
   pulses_to_run:
-    - gaussian
+    # - gaussian
     # - triangular  # Example of disabling a pulse for this campaign
-    # - norris
+    - norris
     # - fred
     # - lognormal
     # - complex_pulse  # Example of enabling a pulse for this campaign
@@ -138,8 +138,8 @@ simulation_campaigns:
 # This section is read by your 'analyze.py' script.
 analysis_settings:
   # The analysis script will test every event file against these bin widths
-  bin_widths_to_analyze_ms: [0.1] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
-  snr_timescales: [0.010, 0.016, 0.032, 0.064, 0.128, 0.256]
+  bin_widths_to_analyze_ms: [0.1, 0.05, 0.02,  0.01, 0.005, 0.002, 0.001, 0.0005, 0.0002, 0.0001]
+  snr_timescales: [0.010, 0.016] #, 0.032, 0.064, 0.128, 0.256]
   detector_selections: [['n2', 'na'], ['all'] ] # [ ['n0'], ['n2', 'na'], ['all'] ]
   extra_pulse: { pulse_shape: 'gaussian', sigma: 0.01, center_time: 0.0 }
   mvt_time_window: 0.5
