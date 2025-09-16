@@ -298,13 +298,13 @@ def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict
         t_decay = params['decay_time']
         start = params['start_time']
         # For FRED/Norris, the rise time is the narrowest feature
-        grid_res = t_rise / 10.0
+        grid_res =  min(t_rise, t_decay) / 10.0
         # Determine the peak time to set a reasonable end point
         # A simple approximation for the peak time
-        peak_time_approx = start + t_rise * 2 
+        peak_time = np.sqrt(t_rise * t_decay)
         # End the simulation after the pulse has decayed significantly (~10x decay time)
-        t_start = start - padding * grid_res * 20 - 2 * t_rise - 1 * t_decay
-        t_stop = peak_time_approx + 10 * t_decay + padding * grid_res * 20
+        t_start = start - 2 * t_rise 
+        t_stop = start + 6 * t_decay 
 
     elif pulse_shape == 'triangular':
         width = params['width']
