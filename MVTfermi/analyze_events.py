@@ -389,7 +389,15 @@ def main(config_filepath: str):
                     logging.error(f"An analysis task failed in the pool: {e}", exc_info=True)
         logging.info(f"✅ Analysis complete! Summary saved to:\n{final_results_csv_path}")
 
-    #send_email(f"Analysis complete! Summary saved to:\n{final_results_csv_path}")
+    email_body = f"Analysis complete for {config_filepath}! The summary is attached and also saved to:\n{final_results_csv_path}"
+
+    # Call the function
+    send_email(
+        subject="Analysis Complete: Results Attached",
+        body=email_body,
+        attachment_path=final_results_csv_path
+    )
+
 
 if __name__ == '__main__':
     # Set up the command-line argument parser
