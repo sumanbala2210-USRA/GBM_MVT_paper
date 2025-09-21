@@ -266,12 +266,12 @@ def complex_pulse_model(t: np.ndarray, params: Dict[str, Any]) -> np.ndarray:
 
 
 # This is the NEW wrapper that plugs into the framework
-def complex_pulse_wrapper(t, main_amplitude, position):
+def complex_pulse_wrapper(t, main_amplitude, position, overall_amplitude=1.0):
     """
     A wrapper for a complex, multi-component pulse. 
     It defines a hardcoded pulse structure and calls the underlying model.
     """
-    overall_amp = 1.0
+    overall_amp = overall_amplitude
     # Define the full structure of your complex pulse here.
     # This dictionary gets passed to the actual model function.
     pulse_parameters = {

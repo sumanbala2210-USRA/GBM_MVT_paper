@@ -329,7 +329,7 @@ RELEVANT_NAMING_KEYS = {
         'norris':     ['peak_amplitude', 'rise_time', 'decay_time', 'angle', 'background_level', 'det'],
         'fred':       ['peak_amplitude', 'rise_time', 'decay_time', 'angle', 'background_level', 'det'],
         'lognormal':  ['peak_amplitude', 'sigma', 'center_time', 'angle', 'background_level', 'det'],
-        'complex_pulse': ['peak_amplitude', 'position', 'angle', 'background_level', 'det'],
+        'complex_pulse': ['peak_amplitude', 'position', 'angle', 'background_level', 'overall_amplitude', 'det'],
     },
     'function': {
         # For function runs, 'angle' etc. are dummy values and should be IGNORED.
@@ -338,7 +338,7 @@ RELEVANT_NAMING_KEYS = {
         'norris':     ['peak_amplitude', 'rise_time', 'decay_time', 'background_level'],
         'fred':       ['peak_amplitude', 'rise_time', 'decay_time', 'background_level'],
         'lognormal':  ['peak_amplitude', 'sigma', 'center_time', 'background_level'],
-        'complex_pulse': ['peak_amplitude', 'position', 'background_level'],
+        'complex_pulse': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
     }
 }
 
@@ -361,9 +361,10 @@ PULSE_MODEL_MAP = {
     'norris':     (norris, ['peak_amplitude', 'start_time', 'rise_time', 'decay_time']),
     'fred':       (fred, ['peak_amplitude', 'start_time', 'rise_time', 'decay_time']),
     'lognormal':  (lognormal, ['peak_amplitude', 'center_time', 'sigma']),
+    #'complex_pulse': (complex_pulse_wrapper, ['peak_amplitude', 'position']),
 
     # === Add this new line for your complex pulse ===
-    'complex_pulse': (complex_pulse_wrapper, ['peak_amplitude', 'position']),
+    'complex_pulse': (complex_pulse_wrapper, ['peak_amplitude', 'position', 'overall_amplitude']),
 }
 # ========= HELPER FUNCTIONS =========
 def e_n(number):
@@ -452,7 +453,8 @@ def _create_param_directory_name(sim_type: str, pulse_shape: str, variable_param
     key_abbreviations = {
         'peak_amplitude': 'amp', 'background_level': 'bkg', 'sigma': 'sig',
         'width': 'w', 'center_time': 't0', 'rise_time': 'tr', 'decay_time': 'td',
-        'peak_time_ratio': 'pr', 'angle': 'ang', 'position': 'pos', 'det': 'det'
+        'peak_time_ratio': 'pr', 'angle': 'ang', 'position': 'pos', 'det': 'det', 
+        'overall_amplitude': 'oamp'
     }
     
     relevant_keys = RELEVANT_NAMING_KEYS.get(sim_type, {}).get(pulse_shape, [])

@@ -1061,8 +1061,10 @@ def create_final_result_dict(input_info: Dict,
 
     STANDARD_KEYS = [
         # Core Parameters
-        'sim_type', 'pulse_shape', 'bin_width_ms', 'peak_amplitude', 'position', 'angle', 'trigger',
-        'sim_det', 'base_det', 'analysis_det', 'num_analysis_det', 'background_level',
+        'sim_type', 'pulse_shape', 'bin_width_ms', 
+        'peak_amplitude', 'peak_amp_relative', 'overall_amplitude',
+        'position', 'angle', 'trigger', 'background_level',
+        'sim_det', 'base_det', 'analysis_det', 'num_analysis_det', 
         # Run Summary
         'total_sim', 'successful_runs', 'failed_runs',
         # MVT Stats

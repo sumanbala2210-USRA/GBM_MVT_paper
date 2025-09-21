@@ -95,12 +95,12 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                 if 'trigger_set' in campaign['parameters']:
                     template_generation_params['trigger_set'] = campaign['parameters']['trigger_set'][0]
 
-                template_dir_name = _create_param_directory_name(sim_type, pulse_shape, template_generation_params)
-                template_dir_path = data_path / sim_type / pulse_shape / template_dir_name
+                #template_dir_name = _create_param_directory_name(sim_type, pulse_shape, template_generation_params)
+                #template_dir_path = data_path / sim_type / pulse_shape / template_dir_name
 
-                if not template_dir_path.exists():
-                    logging.error(f"Assembly Error: Template directory for complex_pulse not found at {template_dir_path}")
-                    continue
+                #if not template_dir_path.exists():
+                #    logging.error(f"Assembly Error: Template directory for complex_pulse not found at {template_dir_path}")
+                #    continue
 
                 # 2. Get the full grid of variable parameters for the feature from the YAML.
                 base_pulse_config = pulse_definitions.get(pulse_shape, {})
@@ -124,6 +124,16 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                     if detector_selections and base_dets != 'all' and sim_type == 'gbm':
                         logging.error(f"Configuration Error: 'detector_selections' is active, but simulation is for det='{base_dets}', not 'all'.")
                         sys.exit(1)
+                    current_variable_params['peak_amplitude'] = 1.0
+                    current_variable_params['position'] = 0.0
+                    template_dir_name = _create_param_directory_name(sim_type, pulse_shape, current_variable_params)
+                    template_dir_path = data_path / sim_type / pulse_shape / template_dir_name
+                    #print("Template Dir Path:", template_dir_path)
+                    #exit(1)
+
+                    if not template_dir_path.exists():
+                        logging.error(f"Assembly Error: Template directory for complex_pulse not found at {template_dir_path}")
+                        continue
 
                     for bin_width_ms in bin_widths_to_analyze_ms:
                         yield from _create_task(sim_type, template_dir_path, base_params, analysis_settings, bin_width_ms, haar_python_path, detector_selections)
@@ -194,12 +204,17 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
         extra_pulse_config = analysis_settings.get('extra_pulse', {})
         feature_pulse_shape = extra_pulse_config.get('pulse_shape', 'extra')
         feature_pulse_params = {k: v for k, v in extra_pulse_config.items() if k != 'pulse_shape'}
+        base_params['peak_amp_relative'] = base_params['peak_amplitude']
+        base_params['peak_amplitude'] = base_params['peak_amplitude']*base_params.get('overall_amplitude', 1.0)
+        
         variable_params_for_name = {
             'peak_amplitude': base_params['peak_amplitude'],
-            'position': base_params.get('position', 0.0)
+            'position': base_params.get('position', 0.0),
+            'overall_amplitude': base_params.get('overall_amplitude', 1.0)
         }
         # Use a placeholder shape like 'gaussian' for consistent naming
-        results_dir_name = _create_param_directory_name(sim_type, feature_pulse_shape, variable_params_for_name, extra_pulse=True)
+        results_dir_name = _create_param_directory_name(sim_type, 'complex_pulse', variable_params_for_name, extra_pulse=True)
+        print("Results Dir Name:", results_dir_name)
         output_analysis_path = results_path / sim_type / pulse_shape / results_dir_name
     else:
         # Standard Mode: Mirror the input directory structure.
@@ -392,11 +407,13 @@ def main(config_filepath: str):
     email_body = f"Analysis complete for {config_filepath}! The summary is attached and also saved to:\n{final_results_csv_path}"
 
     # Call the function
+    """
     send_email(
         subject="Analysis Complete: Results Attached",
         body=email_body,
         attachment_path=final_results_csv_path
     )
+    """
 
 
 if __name__ == '__main__':
