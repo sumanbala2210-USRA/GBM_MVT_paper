@@ -95,6 +95,7 @@ def main():
     parser.add_argument("--time-resolved", action='store_true', help="Perform time-resolved MVT analysis.")
     parser.add_argument("--window-size", type=float, default=10.0, help="Window size in seconds for time-resolved analysis.")
     parser.add_argument("--step-size", type=float, default=1.0, help="Step size in seconds for time-resolved analysis.")
+    parser.add_argument("--tstart", type=float, default=0.0, help="Absolute start time of the counts array in seconds.")
     
     args = parser.parse_args()
 
@@ -120,7 +121,8 @@ def main():
             afactor=-1.0, 
             verbose=False, 
             weight=True, 
-            file=args.file
+            file=args.file,
+            t_start=args.tstart  # <<< NEW ARGUMENT PASSING
         )
     else:
         print("--- Running Standard MVT ---")

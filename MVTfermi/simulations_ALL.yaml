@@ -18,7 +18,7 @@ project_settings:
 pulse_definitions:
   gaussian:
     parameters:
-      sigma: [0.01]
+      sigma: [0.005]
       #sigma: [0.05, 0.01] # [0.01, 0.05, 0.1, 0.5, 1.0]
     constants:
       center_time: 0.0
@@ -54,8 +54,8 @@ pulse_definitions:
   complex_pulse:
     parameters:
       # This is the second argument to your wrapper ('position')
-      position: [6.2, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
+      overall_amplitude: [50] # [1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
 
 # ===================================================================
@@ -86,7 +86,7 @@ simulation_campaigns:
   constants:
     background_level: 1
     random_seed: 37
-    t_start: 0.0
+    t_start: 4.0
     t_stop: 15.0
     en_lo: 8.0
     en_hi: 900.0
@@ -111,14 +111,14 @@ simulation_campaigns:
   enabled: true
 
   parameters:
-    peak_amplitude:  [0.01, 1, 2, 3, 4, 5]  #[0.02, 0.03, 0.04, 0.05, 0.1, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50, 100, 200, 300, 400, 500]
+    peak_amplitude: [3] # [0.01, 1, 2, 3, 4, 5]  #[0.02, 0.03, 0.04, 0.05, 0.1, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50, 100, 200, 300, 400, 500]
 
   constants:
     trigger_number: 99999999
     det: x
     angle: 0
-    t_start: 4.0
-    t_stop: 15.0
+    t_start: 6.0
+    t_stop: 6.5
     background_level: 1
     scale_factor: 1000
     random_seed: 37
@@ -127,7 +127,7 @@ simulation_campaigns:
 
   # This campaign will only run the gaussian and norris simulations.
   pulses_to_run:
-    - gaussian
+    #- gaussian
     # - triangular  # Example of disabling a pulse for this campaign
     # - norris
     # - fred
@@ -140,10 +140,10 @@ simulation_campaigns:
 # This section is read by your 'analyze.py' script.
 analysis_settings:
   # The analysis script will test every event file against these bin widths
-  bin_widths_to_analyze_ms: [0.1] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
+  bin_widths_to_analyze_ms: [0.01] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
   snr_timescales: [0.010, 0.016] #, 0.032, 0.064, 0.128, 0.256]
   detector_selections: [['n2', 'na'], ['all'] ] # [ ['n0'], ['n2', 'na'], ['all'] ]
-  extra_pulse: { pulse_shape: 'gaussian', sigma: 0.01, center_time: 0.0 }
+  extra_pulse: { pulse_shape: 'gaussian', sigma: 0.005, center_time: 0.0 }
   mvt_time_window: 0.5
   mvt_step_size: 0.5
   #detector_selections: [ ['all'] ]

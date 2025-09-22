@@ -33,68 +33,6 @@ WRAPPER_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), 'run_haar_power_mo
 
 
 
-def run_mvt_in_subprocess_old(
-    counts: np.ndarray, 
-    bin_width_s: float,
-    haar_python_path: str,
-    doplot: int = 0,
-    file_name: str = "test"
-) -> List:
-    """
-    Runs the haar_power_mod analysis in a separate Python environment.
-
-    This function handles the creation of temporary files, calling the external
-    script via a subprocess, and loading the results.
-
-    Args:
-        counts (np.ndarray): The binned light curve data.
-        bin_width_s (float): The bin width in seconds.
-        python_env_path (str): The full path to the Python executable in the other environment.
-        wrapper_script_path (str): The full path to the 'run_haar_power.py' wrapper script.
-
-    Returns:
-        List: The results from the haar_power_mod function (e.g., [status, n_bins, mvt, mvt_err]).
-              Returns an empty list on failure.
-    """
-    # Use temporary files that are automatically deleted when the block is exited
-    with tempfile.NamedTemporaryFile(suffix='.npy') as tmp_input, \
-         tempfile.NamedTemporaryFile(suffix='.json', mode='w+') as tmp_output:
-        
-        try:
-            # 1. Save the input data to the temporary input file
-            np.save(tmp_input.name, counts)
-            
-            # 2. Construct the command to run the external script
-            command = [
-                haar_python_path,
-                WRAPPER_SCRIPT_PATH,
-                "--input", tmp_input.name,
-                "--output", tmp_output.name,
-                "--min_dt", str(bin_width_s),
-                "--doplot", str(doplot),
-                "--file", file_name
-            ]
-            
-            # 3. Run the command
-            # The 'check=True' will raise an error if the external script fails
-            subprocess.run(command, check=True, capture_output=True, text=True)
-
-            # 4. Load the results from the temporary output file
-            tmp_output.seek(0) # Rewind file to the beginning before reading
-            mvt_res = json.load(tmp_output)
-            
-            return mvt_res
-
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Subprocess for MVT calculation failed.")
-            logging.error(f"Stderr: {e.stderr}")
-            return [] # Return empty list on failure
-        except Exception as e:
-            logging.error(f"An unexpected error occurred in run_mvt_in_subprocess: {e}")
-            return []
-        
-
-
 def run_mvt_in_subprocess(
     counts: np.ndarray,
     bin_width_s: float,
@@ -103,7 +41,8 @@ def run_mvt_in_subprocess(
     doplot: int = 0,
     time_resolved: bool = False,
     window_size_s: float = 1.0,
-    step_size_s: float = 1.0
+    step_size_s: float = 1.0,
+    tstart: float = 0.0
 ) -> List:
     """
     Runs the MVT analysis in a separate Python environment for either a standard
@@ -145,7 +84,8 @@ def run_mvt_in_subprocess(
                 command.extend([
                     "--time-resolved",
                     "--window-size", str(window_size_s), # Must be a string for the command line
-                    "--step-size", str(step_size_s)      # Must be a string for the command line
+                    "--step-size", str(step_size_s),      # Must be a string for the command line
+                    "--tstart", str(tstart)               # <<< NEW ARGUMENT
                 ])
 
             # 4. Run the command

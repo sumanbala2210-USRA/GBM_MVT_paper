@@ -676,8 +676,8 @@ def create_final_plot_with_MVT(
                 norm = mcolors.Normalize(vmin=0, vmax=100)
                 
                 # ***** THIS IS THE LINE TO EXPERIMENT WITH *****
-                cmap = cm.get_cmap('binary') # Try 'plasma', 'cividis', 'gray_r', etc.'OrRd'
-                #mcmap = cm.get_cmap('binary') #  cm.get_cmap('OrRd')
+                #cmap = cm.get_cmap('binary') # Try 'plasma', 'cividis', 'gray_r', etc.'OrRd'
+                cmap = cm.get_cmap('OrRd')
 
                 for index, row in filtered_mvt_df.iterrows():
                     if index == 0:
@@ -1608,6 +1608,206 @@ def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
 
 
 
+
+
+
+
+
+def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
+    """
+    Performs MVT analysis by assembling a pre-generated template and feature,
+    and calculates a detailed breakdown of source counts and SNR for each component.
+    """
+    base_params = input_info['base_params']
+    analysis_settings = input_info['analysis_settings']
+    sim_params = input_info['sim_par_file']
+    template_dir_path = input_info['sim_data_path']
+    data_path_root = template_dir_path.parents[2]
+    bin_width_ms = input_info['bin_width_ms']
+    haar_python_path = input_info['haar_python_path']
+    feature_amplitude = base_params['peak_amplitude']
+    position_shift = base_params['position']
+    extra_pulse_config = analysis_settings.get('extra_pulse')
+    feature_shape = extra_pulse_config.get('pulse_shape')
+    feature_params_for_naming = { 'peak_amplitude': feature_amplitude, **{k: v for k, v in extra_pulse_config.items() if k != 'pulse_shape'} }
+    feature_dir_name = _create_param_directory_name('function', feature_shape, feature_params_for_naming)
+    feature_dir_path = data_path_root / 'function' / feature_shape / feature_dir_name
+
+    t_start_analysis = base_params.get('t_start_analysis', sim_params['t_start'])
+    t_stop_analysis = base_params.get('t_stop_analysis', sim_params['t_stop'])
+
+    
+    if t_start_analysis < sim_params['t_start'] or t_stop_analysis > sim_params['t_stop']:
+        logging.warning(f"Analysis time window ({t_start_analysis}, {t_stop_analysis}) is outside the simulation time range ({sim_params['t_start']}, {sim_params['t_stop']}). Adjusting to fit within simulation range.")
+        t_start_analysis = max(t_start_analysis, sim_params['t_start'])
+        t_stop_analysis = min(t_stop_analysis, sim_params['t_stop'])
+        if t_start_analysis >= t_stop_analysis:
+            logging.error(f"Adjusted analysis time window is invalid: t_start_analysis ({t_start_analysis}) >= t_stop_analysis ({t_stop_analysis})")
+            return [], 0
+
+    # --- 3. Load event data (Unchanged) ---
+    try:
+        template_src_data = np.load(list(template_dir_path.glob('*_src.npz'))[0], allow_pickle=True)
+        template_bkgd_data = np.load(list(template_dir_path.glob('*_bkgd.npz'))[0], allow_pickle=True)
+        feature_src_data = np.load(list(feature_dir_path.glob('*_src.npz'))[0], allow_pickle=True)
+        template_realizations = template_src_data['realizations']
+        background_realizations = template_bkgd_data['realizations']
+        feature_realizations = feature_src_data['realizations']
+    except (FileNotFoundError, IndexError) as e:
+        logging.error(f"Error loading source/background files for assembly: {e}")
+        return [], 0
+
+    # --- 4. Main Analysis Loop ---
+    NN_analysis = base_params.get('num_analysis', len(template_realizations))
+    duration = sim_params['t_stop'] - sim_params['t_start']
+    duration_analysis = t_stop_analysis - t_start_analysis
+    snr_timescales = analysis_settings.get('snr_timescales', [])
+    iteration_results = []
+    
+    for i in range(NN_analysis):
+        try:
+            # --- 5. Assemble the pulse for this realization ---
+            template_events = template_realizations[i][(template_realizations[i] >= t_start_analysis) & (template_realizations[i] <= t_stop_analysis)]
+            feature_events = feature_realizations[i]
+            background_events = background_realizations[i][(background_realizations[i] >= t_start_analysis) & (background_realizations[i] <= t_stop_analysis)]
+            shifted_feature_events_all = feature_events + position_shift
+            shifted_feature_events = shifted_feature_events_all[(shifted_feature_events_all >= t_start_analysis) & (shifted_feature_events_all <= t_stop_analysis)]
+            complete_src_events = np.sort(np.concatenate([template_events, shifted_feature_events]))
+            total_events = np.sort(np.concatenate([complete_src_events, background_events]))
+            
+            background_level_cps = len(background_events) / duration
+
+            ## ================== FULL METRIC CALCULATIONS ==================
+            # 1. Fluence SNR for each component
+            src_counts_total = len(complete_src_events)
+            bkgd_counts_total_window = background_level_cps * duration_analysis
+            S_flu_total = src_counts_total / np.sqrt(bkgd_counts_total_window) if bkgd_counts_total_window > 0 else 0
+            src_counts_template = len(template_events)
+            S_flu_template = src_counts_template / np.sqrt(bkgd_counts_total_window) if bkgd_counts_total_window > 0 else 0
+            src_counts_feature = len(shifted_feature_events)
+            
+            # --- 1a. SNR of Feature (using AVERAGE background+template rate) ---
+            combined_bkgd_avg_cps = (len(background_events) + len(template_events)) / duration_analysis
+            feature_params_for_interval = {**feature_params_for_naming, 'pulse_shape': feature_shape}
+            feat_t_start_relative, feat_t_stop_relative = calculate_src_interval(feature_params_for_interval)
+            feature_duration = feat_t_stop_relative - feat_t_start_relative
+            bkgd_in_feature_window_avg = combined_bkgd_avg_cps * feature_duration
+            S_flu_feature_avg = src_counts_feature / np.sqrt(bkgd_in_feature_window_avg) if bkgd_in_feature_window_avg > 0 else 0
+
+            # --- 1b. SNR of Feature (using LOCAL background+template counts) ---
+            feature_t_start = feat_t_start_relative + position_shift
+            feature_t_stop = feat_t_stop_relative + position_shift
+            template_counts_in_window = np.sum((template_events >= feature_t_start) & (template_events <= feature_t_stop))
+            bkgd_counts_in_window = np.sum((background_events >= feature_t_start) & (background_events <= feature_t_stop))
+            bkgd_counts_feature_local = template_counts_in_window + bkgd_counts_in_window
+            S_flu_feature_local = src_counts_feature / np.sqrt(bkgd_counts_feature_local) if bkgd_counts_feature_local > 0 else 0
+            
+            # 2. Multi-timescale SNR for each component
+            # --- 2a. Multi-timescale SNR for TOTAL pulse ---
+            total_counts_fine, _ = np.histogram(total_events, bins=int(duration_analysis / 0.001))
+            snr_dict_total = _calculate_multi_timescale_snr(total_counts=total_counts_fine, sim_bin_width=0.001, back_avg_cps=background_level_cps, search_timescales=snr_timescales)
+            
+            # --- 2b. Multi-timescale SNR for TEMPLATE pulse ---
+            template_plus_bkgd_events = np.sort(np.concatenate([template_events, background_events]))
+            template_counts_fine, _ = np.histogram(template_plus_bkgd_events, bins=int(duration_analysis / 0.001))
+            snr_dict_template = _calculate_multi_timescale_snr(total_counts=template_counts_fine, sim_bin_width=0.001, back_avg_cps=background_level_cps, search_timescales=snr_timescales)
+
+            # --- 2c. Multi-timescale SNR for FEATURE pulse ---
+            # For this, the "signal" is the feature, and the "background" is the template+sky.
+            # We use total_counts_fine (which includes all 3 components) and the combined average background rate.
+            snr_dict_feature = _calculate_multi_timescale_snr(total_counts=total_counts_fine, sim_bin_width=0.001, back_avg_cps=combined_bkgd_avg_cps, search_timescales=snr_timescales)
+            
+            ## =============================================================
+            
+            # Rename SNR dictionary keys to be unique before merging
+            final_snr_dict = {f'{k}_total': v for k, v in snr_dict_total.items()}
+            final_snr_dict.update({f'{k}_template': v for k, v in snr_dict_template.items()})
+            final_snr_dict.update({f'{k}_feature': v for k, v in snr_dict_feature.items()})
+
+            base_iter_detail = {
+                'iteration': i + 1, 'random_seed': sim_params['random_seed'] + i, 'back_avg_cps': round(background_level_cps, 2),
+                'src_counts_total': src_counts_total, 'bkgd_counts': len(background_events),
+                'src_counts_template': src_counts_template, 'src_counts_feature': src_counts_feature,
+                'bkgd_counts_feature_local': bkgd_counts_feature_local, # <-- New Metric
+                'S_flu_total': round(S_flu_total, 2), 'S_flu_template': round(S_flu_template, 2),
+                'S_flu_feature_avg': round(S_flu_feature_avg, 2), 'S_flu_feature_local': round(S_flu_feature_local, 2),
+                **final_snr_dict
+            }
+
+            
+            if i == 1:
+                create_final_plot(source_events=complete_src_events, background_events=background_events, model_info={ 'func': None, 'func_par': None, 'base_params': sim_params, 'snr_analysis': snr_timescales }, output_info=output_info)
+
+            # --- MVT on the Assembled Pulse ---
+            bin_width_s = bin_width_ms / 1000.0
+            #bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
+            bins = np.arange(t_start_analysis, t_stop_analysis + bin_width_s, bin_width_s)
+            counts, _ = np.histogram(total_events, bins=bins)
+            mvt_res = run_mvt_in_subprocess(counts=counts, bin_width_s=bin_width_s, haar_python_path=haar_python_path)
+
+            mvt_val = mvt_res['mvt_ms'] if mvt_res else DEFAULT_PARAM_VALUE
+            mvt_err = mvt_res['mvt_err_ms'] if mvt_res else DEFAULT_PARAM_VALUE
+
+            iteration_results.append({ **base_iter_detail, 'analysis_bin_width_ms': bin_width_ms, 'mvt_ms': round(mvt_val, 4), 'mvt_err_ms': round(mvt_err, 4), **base_params })
+
+        except Exception as e:
+            logging.warning(f"Failed analysis on realization {i}. Error: {e}")
+            iteration_results.append({'iteration': i + 1, 'mvt_ms': DEFAULT_PARAM_VALUE, 'mvt_err_ms': DEFAULT_PARAM_VALUE, **base_params})
+
+    final_summary_list = []
+    MVT_summary, snr_keys = analysis_mvt_results_to_dataframe(
+        mvt_results=iteration_results,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        total_runs=NN_analysis
+    )
+
+    mvt_ms = MVT_summary['median_mvt_ms']
+    try:
+        snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
+                               output_info=output_info,
+                               mvt_ms=mvt_ms,
+                               position=position_shift)
+    except Exception as e:
+        logging.error(f"Error computing SNR at MVT timescale: {e}")
+        snr_MVT = DEFAULT_PARAM_VALUE
+        snr_mvt_position = DEFAULT_PARAM_VALUE
+
+    final_result = create_final_result_dict(input_info,
+                             MVT_summary,
+                             snr_keys,
+                             snr_MVT=snr_MVT,
+                             snr_mvt_position=snr_mvt_position)
+    final_summary_list.append(final_result)
+
+    return final_summary_list
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def Function_MVT_analysis_complex_time_resolved(input_info: Dict, output_info: Dict):
     """
     Performs MVT analysis by assembling a pre-generated template and feature,
@@ -1733,7 +1933,7 @@ def Function_MVT_analysis_complex_time_resolved(input_info: Dict, output_info: D
             bin_width_s = bin_width_ms / 1000.0
             bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
             counts, _ = np.histogram(total_events, bins=bins)
-            mvt_res = run_mvt_in_subprocess(counts=counts, bin_width_s=bin_width_s, haar_python_path=haar_python_path, time_resolved=True, window_size_s=mvt_time_window, step_size_s=mvt_step_size)
+            mvt_res = run_mvt_in_subprocess(counts=counts, bin_width_s=bin_width_s, haar_python_path=haar_python_path, time_resolved=True, window_size_s=mvt_time_window, step_size_s=mvt_step_size, tstart=sim_params['t_start']) 
             
             #mvt_val = float(mvt_res[2]) * 1000 if mvt_res else -100
             #mvt_err = float(mvt_res[3]) * 1000 if mvt_res else -200

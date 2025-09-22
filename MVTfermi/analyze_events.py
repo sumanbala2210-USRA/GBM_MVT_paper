@@ -110,11 +110,13 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                 param_names = list(variable_params_config.keys())
                 param_values = [_parse_param(v) for v in variable_params_config.values()]
                 total_sim_analysis = campaign['constants'].get('total_sim', 100)
+                t_start = campaign['constants'].get('t_start', 0.0)
+                t_stop = campaign['constants'].get('t_stop', 15.0)
 
                 # 3. Create a task for every combination of the feature parameters.
                 for combo in itertools.product(*param_values):
                     current_variable_params = dict(zip(param_names, combo))
-                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis}
+                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 't_start_analysis': t_start, 't_stop_analysis': t_stop}
                     
                     # Safety checks for this workflow
                     base_dets = current_variable_params.get('trigger_set', {}).get('det')
@@ -186,9 +188,6 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
     sim_type = base_params['sim_type']
 
     #print("Position:", )
-
-    #print("Base Parameters:---------")
-    #print_nested_dict(base_params)
     #exit()
     
     
@@ -233,11 +232,14 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
 
     sim_param_file = sorted(param_dir.glob('*.yaml'))
     sim_params = yaml.safe_load(open(sim_param_file[0], 'r'))
+
+    #print("Base Parameters:---------")
+    #print_nested_dict(base_params)
     #print("Type:", type(sim_params))
     #print("Simulation Parameters:---------")
     #print_nested_dict(sim_params)
     #print('\n')
-    #exit()
+    #exit(1)
 
     discrepancies = check_param_consistency(
             dict1=sim_params,
@@ -355,7 +357,7 @@ def main(config_filepath: str):
         
         # Create a clean string of the key variable parameters
         param_parts = []
-        key_params = ['peak_amplitude', 'position', 'sigma', 'width', 'rise_time', 'decay_time']
+        key_params = ['peak_amplitude', 'position', 'sigma', 'width', 'rise_time', 'decay_time', 'overall_amplitude']
         for key in key_params:
             if key in bp:
                 param_parts.append(f"{key[:3]}={bp[key]}")
