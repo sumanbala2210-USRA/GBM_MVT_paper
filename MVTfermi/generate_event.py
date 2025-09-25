@@ -26,7 +26,7 @@ from typing import Dict, Any
 # ========= Import necessary libraries =========
 import itertools
 from email.message import EmailMessage
-from SIM_lib import _parse_param, e_n, _create_param_directory_name, PULSE_MODEL_MAP, SIMULATION_REGISTRY, write_yaml, convert_det_to_list, send_email
+from SIM_lib import _parse_param, e_n, _create_param_directory_name, PULSE_MODEL_MAP, SIMULATION_REGISTRY, write_yaml, convert_det_to_list, send_email, complex_pulse_list
 
 from TTE_SIM_v2 import generate_function_events, calculate_adaptive_simulation_params, create_final_plot, create_final_gbm_plot, generate_gbm_events_dets, sim_gbm_name_format, print_nested_dict#complex_pulse_example
 # Assume your original simulation and helper functions are in a library
@@ -290,7 +290,7 @@ def generate_sim_tasks_from_config(config: Dict[str, Any], output_dir: 'Path') -
 
             # =================== NEW CODE BLOCK STARTS HERE ===================
             # This forces the generation of a single, canonical template file.
-            if pulse_shape == 'complex_pulse':
+            if pulse_shape in complex_pulse_list:
                 if 'peak_amplitude' in variable_params_config:
                     variable_params_config['peak_amplitude'] = 1.0
                     logging.info(f"  > Overriding 'peak_amplitude' to 1.0 for '{pulse_shape}' generation.")

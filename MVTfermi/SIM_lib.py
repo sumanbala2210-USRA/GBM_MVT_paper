@@ -22,13 +22,15 @@ import os
 from typing import Dict, Any, Tuple, Callable, List
 
 
-from sim_functions import gaussian2, triangular, constant, norris, fred, lognormal, complex_pulse_wrapper
+from sim_functions import gaussian2, triangular, constant, norris, fred, lognormal, complex_pulse_wrapper, complex_pulse_wrapper_long, complex_pulse_wrapper_short, complex_pulse_wrapper_short_2p10ms, complex_pulse_wrapper_short_2p3ms
 # ========= Import necessary libraries =========
 
 
 GMAIL_FILE = 'config_mail.yaml'
 #HAAR_ENV_PATH = "/Users/sbala/anaconda3/bin/python"
 WRAPPER_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), 'run_haar_power_mod.py')
+
+complex_pulse_list = ['complex_pulse', 'complex_pulse_long', 'complex_pulse_short', 'complex_pulse_short_2p10ms', 'complex_pulse_short_2p3ms']
 
 
 
@@ -278,7 +280,10 @@ RELEVANT_NAMING_KEYS = {
         'norris':     ['peak_amplitude', 'rise_time', 'decay_time', 'background_level'],
         'fred':       ['peak_amplitude', 'rise_time', 'decay_time', 'background_level'],
         'lognormal':  ['peak_amplitude', 'sigma', 'center_time', 'background_level'],
-        'complex_pulse': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
+        'complex_pulse_long': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
+        'complex_pulse_short': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
+        'complex_pulse_short_2p10ms': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
+        'complex_pulse_short_2p3ms': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
     }
 }
 
@@ -304,7 +309,11 @@ PULSE_MODEL_MAP = {
     #'complex_pulse': (complex_pulse_wrapper, ['peak_amplitude', 'position']),
 
     # === Add this new line for your complex pulse ===
-    'complex_pulse': (complex_pulse_wrapper, ['peak_amplitude', 'position', 'overall_amplitude']),
+    'complex_pulse_long': (complex_pulse_wrapper_long, ['peak_amplitude', 'position', 'overall_amplitude']),
+    'complex_pulse_short': (complex_pulse_wrapper_short, ['peak_amplitude', 'position', 'overall_amplitude']),
+    'complex_pulse_short_2p10ms': (complex_pulse_wrapper_short_2p10ms, ['peak_amplitude', 'position', 'overall_amplitude']),
+    'complex_pulse_short_2p3ms': (complex_pulse_wrapper_short_2p3ms, ['peak_amplitude', 'position', 'overall_amplitude']),
+
 }
 # ========= HELPER FUNCTIONS =========
 def e_n(number):

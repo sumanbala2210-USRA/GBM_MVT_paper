@@ -47,7 +47,7 @@ from gdt.core.plot.lightcurve import Lightcurve
 from gdt.core.tte import PhotonList
 from gdt.core.data_primitives import EventList, Ebounds
 
-from SIM_lib import run_mvt_in_subprocess, convert_det_to_list, _create_param_directory_name
+from SIM_lib import run_mvt_in_subprocess, convert_det_to_list, _create_param_directory_name, complex_pulse_list, write_yaml
 # Suppress a common FITS warning
 
 from astropy.io.fits.verify import VerifyWarning
@@ -156,7 +156,7 @@ def check_param_consistency(
     
     # Find the set of keys that exist in both dictionaries
     common_keys = set(dict1.keys()) & set(dict2.keys())
-    if pulse_shape == 'complex_pulse':
+    if pulse_shape in complex_pulse_list:
         avoid_keys = {'det', 'peak_amplitude', 'position'}
         #print("Excluding keys for complex pulse:", avoid_keys)
     else:
@@ -228,7 +228,7 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         t_stop = peak_time_approx + 7 * t_decay
         return t_start, t_stop
 
-    elif pulse_shape == 'complex_pulse':
+    elif pulse_shape in complex_pulse_list:
         # For complex pulses, we can define a practical window based on the parameters
         t_start = 4.4
         t_stop = 14
@@ -318,8 +318,8 @@ def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict
         #t_stop = t_start + width + padding + (padding*2)
         t_stop = center + width * (1.0 - peak_ratio) + padding * grid_res * 5
         # Narrowest feature is the shorter of the rise or fall time
-    
-    elif pulse_shape == 'complex_pulse':
+
+    elif pulse_shape in complex_pulse_list:
         t_start = params.get('t_start', -5.0) 
         t_stop = params.get('t_stop', 5.0)
         grid_res = params.get('grid_resolution', 0.001)
@@ -884,9 +884,108 @@ def create_final_gbm_plot(
             print(f"Failed to generate representative GBM plot. Error: {e}")
 
 
+
+
+def create_final_GBM_plot_with_MVT(
+    lc_tot,
+    t_start: float,
+    t_stop: float,
+    output_info: Dict,
+    bin_width_ms: float,
+    mvt_window_size_s: float,
+    mvt_summary_df: pd.DataFrame = None
+):
+    """
+    Creates a final plot showing a colorful, decomposed light curve and
+    overlays the time-resolved MVT results, color-coded by the
+    success percentage of simulation runs.
+    """
+    output_path = output_info['file_path']
+    trigger_number = output_info['trigger_number']
+    selection_str = output_info['selection_str']
+    try:
+        # --- Unpack data and parameters ---
+        # Use the passed-in output_info to name the new plot
+        #fig_name = "test_mvt_LC.png"
+        fig_name = output_path / f"LC_with_MVT_{trigger_number}_{bin_width_ms}ms_{selection_str}.png"
+        base_title = f"LC & MVT: {trigger_number}; {bin_width_ms} ms"
+
+
+        times = lc_tot.centroids #- t_start
+        total_counts = lc_tot.counts
+
+
+        # --- Create the Plot ---
+        plt.style.use('seaborn-v0_8-ticks')
+        fig, ax = plt.subplots(figsize=(13, 7))
+
+        plot_data = [
+            {'x': times, 'y': total_counts, 'label': 'Total Signal', 'color': 'rosybrown', 'fill_alpha': 0.2}
+        ]
+        for data in plot_data:
+            ax.step(data['x'], data['y'], where='mid', label=data.get('label'), color=data.get('color'), lw=0.1, zorder=1)
+            if 'fill_alpha' in data:
+                ax.fill_between(data['x'], data['y'], step="mid", color=data.get('color'), alpha=data.get('fill_alpha'))
+        ax.set_title(base_title, fontsize=12)
+        ax.set_xlabel("Time (s)", fontsize=12)
+        ax.set_ylabel(f"Counts per {bin_width_ms:.1f} ms Bin", fontsize=12)
+        ax.set_xlim(t_start, t_stop)
+        ax.set_ylim(bottom=0)
+
+        # --- Overlay MVT data ---
+        if mvt_summary_df is not None and not mvt_summary_df.empty:
+            ax2 = ax.twinx()
+            filtered_mvt_df = mvt_summary_df[mvt_summary_df['median_mvt_ms'] > 0].copy()
+            x_err = mvt_window_size_s / 2.0
+            filtered_mvt_df['success_percent'] = (filtered_mvt_df['successful_runs'] / filtered_mvt_df['total_runs_at_step']) * 100
+
+            if not filtered_mvt_df.empty:
+                norm = mcolors.Normalize(vmin=0, vmax=100)
+                
+                # ***** THIS IS THE LINE TO EXPERIMENT WITH *****
+                #cmap = cm.get_cmap('plasma') # Try 'plasma', 'cividis', 'gray_r', etc.'OrRd'
+                #mcmap = cm.get_cmap('binary') #  cm.get_cmap('OrRd')
+                cmap = cm.get_cmap('binary')
+
+                for index, row in filtered_mvt_df.iterrows():
+                    if index == 0:
+                        x_err = row['center_time_s'] - row['start_time_s']
+                    color = cmap(norm(row['success_percent']))
+                    #mcolor = mcmap(norm(row['success_percent']))
+
+                    ax2.errorbar(x=row['center_time_s'], y=row['median_mvt_ms'],
+                                 yerr=[[row['mvt_err_lower_ms']], [row['mvt_err_upper_ms']]], xerr=x_err,
+                                 fmt='o', color=color, capsize=4, markersize=6, lw=1.5, zorder=10)
+
+                mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
+                cbar = fig.colorbar(mappable, ax=ax2, pad=0.08, aspect=30)
+                cbar.set_label(f'Success Rate [{filtered_mvt_df["total_runs_at_step"][1]}] (%)', fontsize=12)
+
+            ax2.set_ylabel("MVT (ms)", fontsize=12)
+            ax2.tick_params(axis='y')
+            ax2.set_yscale("log")
+            ax.legend(loc='upper left')
+        else:
+            ax.legend(loc='upper right')
+        
+        fig.tight_layout()
+        
+        plt.savefig(fig_name, dpi=300)
+        #plt.show()
+        plt.close(fig)
+        
+        print(f"Plot saved to: {fig_name}")
+
+    except Exception as e:
+        logging.error(f"Failed to generate plot. Error: {e}", exc_info=True)
+        pass
+
+
+
+
 def analysis_mvt_results_to_dataframe(
     mvt_results: List[List[Dict]],
-    output_info: Path,
+    output_info: Dict[str, any],
     bin_width_ms: float,
     total_runs: int,
 ):
@@ -1087,7 +1186,7 @@ def create_final_result_dict(input_info: Dict,
     # ==================== START CHANGE 1 ====================
     # If it's a complex pulse, dynamically add keys for the feature pulse parameters.
     # This ensures they have a column in the final summary CSV.
-    if base_params['pulse_shape'] == 'complex_pulse':
+    if base_params['pulse_shape'] in complex_pulse_list:
         extra_pulse_config = analysis_settings.get('extra_pulse', {})
         # Create descriptive keys like 'sigma_feature', 'peak_amplitude_feature', etc.
         feature_param_keys = [f"{key}_feature" for key in extra_pulse_config if key != 'pulse_shape']
@@ -1108,8 +1207,8 @@ def create_final_result_dict(input_info: Dict,
                     'position': base_params.get('position', 0),
                     **snr_keys
                     }
-    
-    if result_data.get('pulse_shape') == 'complex_pulse':
+
+    if result_data.get('pulse_shape') in complex_pulse_list:
             extra_pulse_config = analysis_settings.get('extra_pulse', {})
             feature_params_for_summary = {f"{key}_feature": val for key, val in extra_pulse_config.items() if key != 'pulse_shape'}
             result_data.update(feature_params_for_summary)
@@ -2015,6 +2114,16 @@ def analysis_mvt_time_resolved_results_to_dataframe(
     Returns:
         pd.DataFrame: A DataFrame summarizing the MVT statistics for each time step.
     """
+    output_path = output_info['file_path']
+    try:
+        name = output_info['file_info']
+    except:
+        name = output_info['trigger_number']
+
+    selection_str = output_info.get('selection_str', 'default')
+
+    detailed_df = pd.DataFrame(mvt_results)
+    detailed_df.to_csv(output_path / f"Detailed_{name}_{selection_str}s_{bin_width_ms}ms.csv", index=False)
     # --- Step 1: Flatten the nested MVT data into a single list ---
     flat_mvt_data = []
     for run_index, run_results in enumerate(mvt_results):
@@ -2024,13 +2133,13 @@ def analysis_mvt_time_resolved_results_to_dataframe(
                 flat_mvt_data.append(time_window_result)
 
     if not flat_mvt_data:
-        logging.warning(f"MVT analysis produced no valid data points for {output_info['file_info']}.")
+        logging.warning(f"MVT analysis produced no valid data points for {name}.")
         return pd.DataFrame() # Return an empty DataFrame
 
     mvt_df = pd.DataFrame(flat_mvt_data)
     
     # Save the raw, flattened data for detailed inspection
-    flat_csv_path = output_info['file_path'] / f"Detailed_MVT_flat_{output_info['file_info']}_default_{bin_width_ms}ms.csv"
+    flat_csv_path = output_path / f"Detailed_MVT_flat_{name}_{selection_str}_{bin_width_ms}ms.csv"
     mvt_df.to_csv(flat_csv_path, index=False)
 
     # --- Step 2: Group by each time step and calculate statistics ---
@@ -2070,14 +2179,14 @@ def analysis_mvt_time_resolved_results_to_dataframe(
             ax.axvspan(p16, p84, color='darkorange', alpha=0.2,
                        label=f"68% C.I. [{p16:.3f}, {p84:.3f}]")
 
-            ax.set_title(f"MVT Distribution for {output_info['file_info']}\nTime Step: {center_time:.2f} s | Bin Width: {bin_width_ms} ms")
+            ax.set_title(f"MVT Distribution for {name}\nTime Step: {center_time:.2f} s | Bin Width: {bin_width_ms} ms")
             ax.set_xlabel("Minimum Variability Timescale (ms)")
             ax.set_ylabel("Probability Density")
             ax.legend()
             fig.tight_layout()
 
-            plot_filename = f"MVT_dist_{output_info['file_info']}_default_{bin_width_ms}ms_T{center_time:.2f}s.png"
-            plt.savefig(output_info['file_path'] / plot_filename, dpi=150)
+            plot_filename = f"MVT_dist_{name}_{selection_str}_{bin_width_ms}ms_T{center_time:.2f}s.png"
+            plt.savefig(output_path / plot_filename, dpi=150)
             plt.close(fig)
 
         except Exception as e:
@@ -2095,7 +2204,7 @@ def analysis_mvt_time_resolved_results_to_dataframe(
             'failed_runs': len(group) - len(valid_mvts),
         })
 
-    final_MVT_csv_path = output_info['file_path'] / f"MVT_{output_info['file_info']}_default_{bin_width_ms}ms.csv"
+    final_MVT_csv_path = output_path / f"MVT_{name}_{selection_str}_{bin_width_ms}ms.csv"
     time_resolved_summary_df = pd.DataFrame(time_resolved_summary)
     time_resolved_summary_df.to_csv(final_MVT_csv_path, index=False)
 

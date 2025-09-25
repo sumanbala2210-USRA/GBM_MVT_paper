@@ -25,7 +25,7 @@ from typing import Dict, Any, List
 import matplotlib.pyplot as plt
 import sys
 
-from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml
+from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml, complex_pulse_list
 
 
 from TTE_SIM_v2 import Function_MVT_analysis, print_nested_dict, check_param_consistency, flatten_dict, GBM_MVT_analysis_det, GBM_MVT_analysis_complex, Function_MVT_analysis_complex
@@ -37,6 +37,8 @@ from TTE_SIM_v2 import Function_MVT_analysis, print_nested_dict, check_param_con
 MAX_WORKERS = int(os.environ.get('SLURM_CPUS_PER_TASK', os.cpu_count() - 2))
 SIM_CONFIG_FILE = 'simulations_ALL.yaml'
 RESULTS_FILE_NAME = "final_summary_results.csv"
+
+
 
 
 
@@ -77,16 +79,20 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
             continue 
         sim_type = campaign.get('type')
         pulses_to_run = campaign.get('pulses_to_run', [])
-        if 'complex_pulse' in pulses_to_run and isinstance(pulses_to_run, list):
+        
+        #if 'complex_pulse' in pulses_to_run and isinstance(pulses_to_run, list):
+        if any(p in complex_pulse_list for p in pulses_to_run):
+            logging.warning("When 'complex_pulse' is included in 'pulses_to_run', it must be the only entry. Overriding to only run 'complex_pulses'.")
+            pulses_to_run = [p for p in pulses_to_run if p in complex_pulse_list]
             # Ensure 'complex_pulse' is the only entry if present
-            pulses_to_run = ['complex_pulse']
+            #pulses_to_run = ['complex_pulse']
 
         for pulse_config in pulses_to_run:
             pulse_shape = pulse_config if isinstance(pulse_config, str) else list(pulse_config.keys())[0]
             
             
             # --- TOP-LEVEL SWITCH for Assembly vs. Standard Mode ---
-            if pulse_shape == 'complex_pulse':
+            if pulse_shape in complex_pulse_list:
                 logging.info(f"  > Found '{pulse_shape}', preparing 'assemble-in-analysis' tasks...")
                 
                 # 1. Manually construct the path to the SINGLE pre-generated template directory.
@@ -198,7 +204,7 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
 
     ## ================== Directory Creation Logic ==================
     output_analysis_path = None
-    if pulse_shape == 'complex_pulse':
+    if pulse_shape in complex_pulse_list:
         # Assembly Mode: Name the output directory after the variable feature parameters.
         extra_pulse_config = analysis_settings.get('extra_pulse', {})
         feature_pulse_shape = extra_pulse_config.get('pulse_shape', 'extra')
@@ -212,7 +218,7 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
             'overall_amplitude': base_params.get('overall_amplitude', 1.0)
         }
         # Use a placeholder shape like 'gaussian' for consistent naming
-        results_dir_name = _create_param_directory_name(sim_type, 'complex_pulse', variable_params_for_name, extra_pulse=True)
+        results_dir_name = _create_param_directory_name(sim_type, pulse_shape, variable_params_for_name, extra_pulse=True)
         print("Results Dir Name:", results_dir_name)
         output_analysis_path = results_path / sim_type / pulse_shape / results_dir_name
     else:
@@ -293,7 +299,7 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
         analysis_input['analysis_det'] = analysis_det
         analysis_input['base_det'] = base_dets
 
-        if base_params['pulse_shape'] == 'complex_pulse':
+        if base_params['pulse_shape'] in complex_pulse_list:
             final_summary_list = GBM_MVT_analysis_complex(input_info=analysis_input,
                     output_info = { 'file_path': output_analysis_path,
                                 'file_info': param_dir.name,
@@ -308,7 +314,7 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
         base_dets = analysis_det = sim_params['det']
         analysis_input['analysis_det'] = analysis_det
         analysis_input['base_det'] = base_dets
-        if base_params['pulse_shape'] == 'complex_pulse':
+        if base_params['pulse_shape'] in complex_pulse_list:
             final_summary_list = Function_MVT_analysis_complex(input_info=analysis_input,
             output_info={ 'file_path': output_analysis_path,
                          'file_info': param_dir.name,

@@ -288,6 +288,79 @@ def complex_pulse_wrapper(t, main_amplitude, position, overall_amplitude=1.0):
             ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
             #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
             #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
+            #('gaussian', (2*overall_amp,  4.95, 0.01)),
+            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
+            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
+            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
+            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
+            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
+            ]
+        }
+    
+    
+    # Call the actual generator function with the constructed params dict
+    return generate_pulse_function(t, pulse_parameters)
+
+# This is the NEW wrapper that plugs into the framework
+def complex_pulse_wrapper_short(t, main_amplitude, position, overall_amplitude=1.0):
+    """
+    A wrapper for a complex, multi-component pulse. 
+    It defines a hardcoded pulse structure and calls the underlying model.
+    """
+    overall_amp = overall_amplitude
+    # Define the full structure of your complex pulse here.
+    # This dictionary gets passed to the actual model function.
+    pulse_parameters = {
+        'main_amplitude': main_amplitude,
+        'pulse_list': [
+                ('norris', (1.0*overall_amp,  6.1, 0.1, 1.2)),
+
+            # Other pulses are fractions (or multiples) of the main amplitude
+            ('norris', (0.84*overall_amp, 5.2, 0.08, 0.5)),
+            ('norris', (0.76*overall_amp, 5.5, 0.06, 0.8)),
+            ('norris', (0.6*overall_amp,  6.4, 0.05, 0.6)),
+            ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
+            ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
+            ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
+            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
+            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
+            #('gaussian', (2*overall_amp,  4.95, 0.01)),
+            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
+            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
+            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
+            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
+            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
+            ]
+        }
+    
+    
+    # Call the actual generator function with the constructed params dict
+    return generate_pulse_function(t, pulse_parameters)
+
+# This is the NEW wrapper that plugs into the framework
+def complex_pulse_wrapper_long(t, main_amplitude, position, overall_amplitude=1.0):
+    """
+    A wrapper for a complex, multi-component pulse. 
+    It defines a hardcoded pulse structure and calls the underlying model.
+    """
+    overall_amp = overall_amplitude
+    # Define the full structure of your complex pulse here.
+    # This dictionary gets passed to the actual model function.
+    pulse_parameters = {
+        'main_amplitude': main_amplitude,
+        'pulse_list': [
+                ('norris', (1.0*overall_amp,  6.1, 0.1, 1.2)),
+
+            # Other pulses are fractions (or multiples) of the main amplitude
+            ('norris', (0.84*overall_amp, 5.2, 0.08, 0.5)),
+            ('norris', (0.76*overall_amp, 5.5, 0.06, 0.8)),
+            ('norris', (0.6*overall_amp,  6.4, 0.05, 0.6)),
+            ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
+            ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
+            ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
+            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
+            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
+            #('gaussian', (2*overall_amp,  4.95, 0.01)),
             ('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
             ('gaussian', (0.44*overall_amp, 6.8, 0.15)),
             ('gaussian', (0.38*overall_amp, 7.5, 0.2)),
@@ -296,6 +369,76 @@ def complex_pulse_wrapper(t, main_amplitude, position, overall_amplitude=1.0):
             ]
         }
     
+    # Call the actual generator function with the constructed params dict
+    return generate_pulse_function(t, pulse_parameters)
+
+# This is the NEW wrapper that plugs into the framework
+def complex_pulse_wrapper_short_2p10ms(t, main_amplitude, position, overall_amplitude=1.0):
+    """
+    A wrapper for a complex, multi-component pulse. 
+    It defines a hardcoded pulse structure and calls the underlying model.
+    """
+    overall_amp = overall_amplitude
+    # Define the full structure of your complex pulse here.
+    # This dictionary gets passed to the actual model function.
+    pulse_parameters = {
+        'main_amplitude': main_amplitude,
+        'pulse_list': [
+                ('norris', (1.0*overall_amp,  6.1, 0.1, 1.2)),
+
+            # Other pulses are fractions (or multiples) of the main amplitude
+            ('norris', (0.84*overall_amp, 5.2, 0.08, 0.5)),
+            ('norris', (0.76*overall_amp, 5.5, 0.06, 0.8)),
+            ('norris', (0.6*overall_amp,  6.4, 0.05, 0.6)),
+            ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
+            ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
+            ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
+            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
+            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
+            ('gaussian', (2*overall_amp,  4.95, 0.01)),
+            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
+            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
+            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
+            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
+            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
+            ]
+        }
     
     # Call the actual generator function with the constructed params dict
     return generate_pulse_function(t, pulse_parameters)
+
+# This is the NEW wrapper that plugs into the framework
+def complex_pulse_wrapper_short_2p3ms(t, main_amplitude, position, overall_amplitude=1.0):
+    """
+    A wrapper for a complex, multi-component pulse. 
+    It defines a hardcoded pulse structure and calls the underlying model.
+    """
+    overall_amp = overall_amplitude
+    # Define the full structure of your complex pulse here.
+    # This dictionary gets passed to the actual model function.
+    pulse_parameters = {
+        'main_amplitude': main_amplitude,
+        'pulse_list': [
+                ('norris', (1.0*overall_amp,  6.1, 0.1, 1.2)),
+
+            # Other pulses are fractions (or multiples) of the main amplitude
+            ('norris', (0.84*overall_amp, 5.2, 0.08, 0.5)),
+            ('norris', (0.76*overall_amp, 5.5, 0.06, 0.8)),
+            ('norris', (0.6*overall_amp,  6.4, 0.05, 0.6)),
+            ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
+            ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
+            ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
+            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
+            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
+            ('gaussian', (2*overall_amp,  4.95, 0.003)),
+            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
+            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
+            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
+            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
+            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
+            ]
+        }
+    
+    # Call the actual generator function with the constructed params dict
+    return generate_pulse_function(t, pulse_parameters)
+
