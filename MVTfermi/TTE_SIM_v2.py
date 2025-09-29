@@ -7,7 +7,7 @@ Old: This script simulates light curves using Gaussian and triangular profiles.
 
 """
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 import glob
@@ -46,6 +46,10 @@ import matplotlib.pyplot as plt
 from gdt.core.plot.lightcurve import Lightcurve
 from gdt.core.tte import PhotonList
 from gdt.core.data_primitives import EventList, Ebounds
+
+import yaml
+import logging
+from collections import Counter
 
 from SIM_lib import run_mvt_in_subprocess, convert_det_to_list, _create_param_directory_name, complex_pulse_list, write_yaml
 # Suppress a common FITS warning
@@ -721,14 +725,16 @@ def plot_gbm_lc(tte_total, tte_src, tte_bkgd,
     params = model_info['base_params']
     #params = model_info.get('params', {})
     #print_nested_dict(params)
-    
-    
+    t_start = params['t_start']
+    t_stop = params['t_stop']
+
     en_lo = params.get('en_lo', 8.0)
     en_hi = params.get('en_hi', 900.0)
 
     #print(params)
     trigger_number = params['trigger_number'] if 'trigger_number' in params else 0
     det = params['det'] if 'det' in params else 'nn'
+    dets = params['dets'] if 'dets' in params else ['nn']
     angle = params['angle'] if 'angle' in params else 0
 
     #analysis_settings = model_info['snr_analysis']
@@ -788,7 +794,7 @@ def plot_gbm_lc(tte_total, tte_src, tte_bkgd,
         base_title = f" LC {output_info['file_info']}"
         det_string = output_info.get('det_string')
         #print("Det in output_info:", det_string)
-        final_title = f'Bn{trigger_number}, {det_string}, {angle} det,' + f"{base_title}\n{SNR_text}"
+        final_title = f'Bn{trigger_number}, {det_string}, {angle} deg,' + f"{base_title}\n{SNR_text}"
     else:
         base_title = f" LC {output_info['file_name']}"
         final_title = f"{base_title}\n{SNR_text}"
@@ -805,6 +811,17 @@ def plot_gbm_lc(tte_total, tte_src, tte_bkgd,
 
     if fig_name is None:
         fig_name = f'lc_{trigger_number}_n{det}_{angle}deg.png'
+    
+    plt.hlines(
+    y=bkgd_cps * fine_bw,
+    xmin=t_start,
+    xmax=t_stop,
+    color='k',
+    linestyle='--',
+    label=f'Ideal Background ({bkgd_cps:.1f} cps)'
+    )
+
+    plt.legend(loc='upper right')
 
     plt.title(final_title, fontsize=10)
 
@@ -1364,7 +1381,130 @@ def compute_snr_for_mvt(input_info: Dict,
     
     return mean_snr_mvt, mean_snr_mvt_position
 
+def compute_snr_for_mvt_GBM(input_info: Dict,
+                             output_info: Dict,
+                             mvt_ms: float) -> Tuple[float, float]:
+    output_path = output_info['file_path']
+    try:
+        name = output_info['file_info']
+    except:
+        name = output_info['trigger_number']
+    
+    selection_str = output_info['selection_str']
+    # Extract necessary parameters from input_info
+    sim_data_path = input_info['sim_data_path']
+    analysis_settings = input_info['analysis_settings']
+    sim_params_file = input_info['sim_par_file']
+    dets = input_info['analysis_det']
 
+    if type(sim_params_file) is dict:
+        sim_params = sim_params_file
+    else:
+        sim_params = yaml.safe_load(open(sim_params_file, 'r'))
+    #sim_params = yaml.safe_load(open(sim_params_file[0], 'r'))
+    base_params = input_info['base_params']
+    NN_analysis = base_params['num_analysis']
+    #print_nested_dict(base_params)
+
+    en_lo = sim_params.get('en_lo', 8.0)
+    en_hi = sim_params.get('en_hi', 900.0)
+  
+   
+    t_start = sim_params['t_start']
+    t_stop = sim_params['t_stop']
+    trange = [t_start, t_stop]
+    #print("---------------")
+    #dets = convert_det_to_list(sim_params.get('det', 'nn'))
+    #print("sim_params.get('det', 'nn'):", sim_params.get('det', 'nn'))
+    #print("Detector:", dets)
+    #print("---------------")
+    angle = sim_params.get('angle', 0)
+    trigger_number = sim_params.get('trigger_number', 0)
+    name_key = sim_params.get('name_key', 'test')
+
+    energy_range_nai = (en_lo, en_hi)
+    src_start, src_stop = calculate_src_interval(sim_params)
+    src_duration = src_stop - src_start
+    duration = sim_params['t_stop'] - sim_params['t_start']
+
+
+
+    for det in dets:
+        src_filename, bkgd_filename = sim_gbm_name_format(
+                trigger_number=trigger_number,
+                det=det,
+                name_key=name_key,
+                r_seed='*'
+            )
+        
+        src_event_file_list = list(sim_data_path.glob(src_filename))
+        bkgd_event_file_list = list(sim_data_path.glob(bkgd_filename))
+        #print(f"Source files: {src_event_file_list[0]}")
+        #print(f"Background files: {bkgd_event_file_list[0]}")
+        if len(src_event_file_list) != len(bkgd_event_file_list):
+            logging.error(f"GBM analysis for {output_info['file_info']} has mismatched source and background files.")
+        if len(src_event_file_list) < NN_analysis:
+            print("####################################################")
+            print(f"GBM analysis for {output_info['file_info']} has insufficient files ({len(src_event_file_list)} < {NN_analysis}).")
+            print("####################################################")
+
+    #NN = len(src_event_files)
+    iteration_results = []
+    #print("Starting SNR_MVT calculation for", name, "with", NN_analysis, "iterations.")
+    for i in range(NN_analysis):
+        try:
+            iteration_seed = sim_params['random_seed'] + i
+
+            src_tte_list = []
+            bkgd_tte_list = []
+            for det in dets:
+                src_filename, bkgd_filename = sim_gbm_name_format(
+                    trigger_number=trigger_number,
+                    det=det,
+                    name_key=name_key,
+                    r_seed=iteration_seed
+                )
+                src_file_path = sim_data_path / src_filename
+                bkgd_file_path = sim_data_path / bkgd_filename
+                #src_tte_list.append(str(src_file_path))
+                #bkgd_tte_list.append(str(bkgd_file_path))
+                src_tte_list.append(GbmTte.open(str(src_file_path)).slice_time(trange))
+                bkgd_tte_list.append(GbmTte.open(str(bkgd_file_path)).slice_time(trange))
+
+            tte_src = GbmTte.merge(src_tte_list)
+            tte_bkgd = GbmTte.merge(bkgd_tte_list)
+
+            total_bkgd_counts = tte_bkgd.data.size
+            background_level_cps = total_bkgd_counts / duration
+
+
+            # merge the background and source
+            tte_total = GbmTte.merge([tte_src, tte_bkgd])
+
+            #try:
+            mvt_s = mvt_ms / 1000.0
+            phaii = tte_total.to_phaii(bin_by_time, mvt_s)
+            lc_total = phaii.to_lightcurve(energy_range=energy_range_nai)
+            snr_mvt = max(lc_total.counts) / np.sqrt(background_level_cps * mvt_s) if background_level_cps * mvt_s > 0 else DEFAULT_PARAM_VALUE
+            iteration_results.append(snr_mvt)
+        except Exception as e:
+            logging.error(f"Error computing SNR for MVT in iteration {i}: {e}", exc_info=True)
+            continue
+        try:
+            mvt_snr_output = output_path / f"SNR_MVT_{name}_{selection_str}_{round(mvt_ms, 2)}.csv"
+            pd.DataFrame({'SNR_MVT': iteration_results}).to_csv(mvt_snr_output, index=False)
+        except Exception as e:
+            logging.error(f"Error saving SNR_MVT results to CSV: {e}", exc_info=True)
+
+        if iteration_results:
+            iteration_results_filtered = [snr for snr in iteration_results if snr > 0]
+            mean_snr_mvt = round(np.mean(iteration_results_filtered), 2)
+        else:
+            mean_snr_mvt = DEFAULT_PARAM_VALUE 
+
+
+
+    return mean_snr_mvt, DEFAULT_PARAM_VALUE
 
 def Function_MVT_analysis(input_info: Dict,
                            output_info: Dict):
@@ -1568,170 +1708,6 @@ def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
     feature_dir_name = _create_param_directory_name('function', feature_shape, feature_params_for_naming)
     feature_dir_path = data_path_root / 'function' / feature_shape / feature_dir_name
 
-    # --- 3. Load event data (Unchanged) ---
-    try:
-        template_src_data = np.load(list(template_dir_path.glob('*_src.npz'))[0], allow_pickle=True)
-        template_bkgd_data = np.load(list(template_dir_path.glob('*_bkgd.npz'))[0], allow_pickle=True)
-        feature_src_data = np.load(list(feature_dir_path.glob('*_src.npz'))[0], allow_pickle=True)
-        template_realizations = template_src_data['realizations']
-        background_realizations = template_bkgd_data['realizations']
-        feature_realizations = feature_src_data['realizations']
-    except (FileNotFoundError, IndexError) as e:
-        logging.error(f"Error loading source/background files for assembly: {e}")
-        return [], 0
-
-    # --- 4. Main Analysis Loop ---
-    NN_analysis = base_params.get('num_analysis', len(template_realizations))
-    duration = sim_params['t_stop'] - sim_params['t_start']
-    snr_timescales = analysis_settings.get('snr_timescales', [])
-    iteration_results = []
-    
-    for i in range(NN_analysis):
-        try:
-            # --- 5. Assemble the pulse for this realization ---
-            template_events = template_realizations[i]
-            feature_events = feature_realizations[i]
-            background_events = background_realizations[i]
-            shifted_feature_events = feature_events + position_shift
-            complete_src_events = np.sort(np.concatenate([template_events, shifted_feature_events]))
-            total_events = np.sort(np.concatenate([complete_src_events, background_events]))
-            
-            background_level_cps = len(background_events) / duration
-
-            ## ================== FULL METRIC CALCULATIONS ==================
-            # 1. Fluence SNR for each component
-            src_counts_total = len(complete_src_events)
-            bkgd_counts_total_window = background_level_cps * duration
-            S_flu_total = src_counts_total / np.sqrt(bkgd_counts_total_window) if bkgd_counts_total_window > 0 else 0
-            src_counts_template = len(template_events)
-            S_flu_template = src_counts_template / np.sqrt(bkgd_counts_total_window) if bkgd_counts_total_window > 0 else 0
-            src_counts_feature = len(shifted_feature_events)
-            
-            # --- 1a. SNR of Feature (using AVERAGE background+template rate) ---
-            combined_bkgd_avg_cps = (len(background_events) + len(template_events)) / duration
-            feature_params_for_interval = {**feature_params_for_naming, 'pulse_shape': feature_shape}
-            feat_t_start_relative, feat_t_stop_relative = calculate_src_interval(feature_params_for_interval)
-            feature_duration = feat_t_stop_relative - feat_t_start_relative
-            bkgd_in_feature_window_avg = combined_bkgd_avg_cps * feature_duration
-            S_flu_feature_avg = src_counts_feature / np.sqrt(bkgd_in_feature_window_avg) if bkgd_in_feature_window_avg > 0 else 0
-
-            # --- 1b. SNR of Feature (using LOCAL background+template counts) ---
-            feature_t_start = feat_t_start_relative + position_shift
-            feature_t_stop = feat_t_stop_relative + position_shift
-            template_counts_in_window = np.sum((template_events >= feature_t_start) & (template_events <= feature_t_stop))
-            bkgd_counts_in_window = np.sum((background_events >= feature_t_start) & (background_events <= feature_t_stop))
-            bkgd_counts_feature_local = template_counts_in_window + bkgd_counts_in_window
-            S_flu_feature_local = src_counts_feature / np.sqrt(bkgd_counts_feature_local) if bkgd_counts_feature_local > 0 else 0
-            
-            # 2. Multi-timescale SNR for each component
-            # --- 2a. Multi-timescale SNR for TOTAL pulse ---
-            total_counts_fine, _ = np.histogram(total_events, bins=int(duration / 0.001))
-            snr_dict_total = _calculate_multi_timescale_snr(total_counts=total_counts_fine, sim_bin_width=0.001, back_avg_cps=background_level_cps, search_timescales=snr_timescales)
-            
-            # --- 2b. Multi-timescale SNR for TEMPLATE pulse ---
-            template_plus_bkgd_events = np.sort(np.concatenate([template_events, background_events]))
-            template_counts_fine, _ = np.histogram(template_plus_bkgd_events, bins=int(duration / 0.001))
-            snr_dict_template = _calculate_multi_timescale_snr(total_counts=template_counts_fine, sim_bin_width=0.001, back_avg_cps=background_level_cps, search_timescales=snr_timescales)
-
-            # --- 2c. Multi-timescale SNR for FEATURE pulse ---
-            # For this, the "signal" is the feature, and the "background" is the template+sky.
-            # We use total_counts_fine (which includes all 3 components) and the combined average background rate.
-            snr_dict_feature = _calculate_multi_timescale_snr(total_counts=total_counts_fine, sim_bin_width=0.001, back_avg_cps=combined_bkgd_avg_cps, search_timescales=snr_timescales)
-            
-            ## =============================================================
-            
-            # Rename SNR dictionary keys to be unique before merging
-            final_snr_dict = {f'{k}_total': v for k, v in snr_dict_total.items()}
-            final_snr_dict.update({f'{k}_template': v for k, v in snr_dict_template.items()})
-            final_snr_dict.update({f'{k}_feature': v for k, v in snr_dict_feature.items()})
-
-            base_iter_detail = {
-                'iteration': i + 1, 'random_seed': sim_params['random_seed'] + i, 'back_avg_cps': round(background_level_cps, 2),
-                'src_counts_total': src_counts_total, 'bkgd_counts': len(background_events),
-                'src_counts_template': src_counts_template, 'src_counts_feature': src_counts_feature,
-                'bkgd_counts_feature_local': bkgd_counts_feature_local, # <-- New Metric
-                'S_flu_total': round(S_flu_total, 2), 'S_flu_template': round(S_flu_template, 2),
-                'S_flu_feature_avg': round(S_flu_feature_avg, 2), 'S_flu_feature_local': round(S_flu_feature_local, 2),
-                **final_snr_dict
-            }
-
-            
-            if i == 1:
-                create_final_plot(source_events=complete_src_events, background_events=background_events, model_info={ 'func': None, 'func_par': None, 'base_params': sim_params, 'snr_analysis': snr_timescales }, output_info=output_info)
-
-            # --- MVT on the Assembled Pulse ---
-            bin_width_s = bin_width_ms / 1000.0
-            bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
-            counts, _ = np.histogram(total_events, bins=bins)
-            mvt_res = run_mvt_in_subprocess(counts=counts, bin_width_s=bin_width_s, haar_python_path=haar_python_path)
-
-            mvt_val = mvt_res['mvt_ms'] if mvt_res else DEFAULT_PARAM_VALUE
-            mvt_err = mvt_res['mvt_err_ms'] if mvt_res else DEFAULT_PARAM_VALUE
-
-            iteration_results.append({ **base_iter_detail, 'analysis_bin_width_ms': bin_width_ms, 'mvt_ms': round(mvt_val, 4), 'mvt_err_ms': round(mvt_err, 4), **base_params })
-
-        except Exception as e:
-            logging.warning(f"Failed analysis on realization {i}. Error: {e}")
-            iteration_results.append({'iteration': i + 1, 'mvt_ms': DEFAULT_PARAM_VALUE, 'mvt_err_ms': DEFAULT_PARAM_VALUE, **base_params})
-
-    final_summary_list = []
-    MVT_summary, snr_keys = analysis_mvt_results_to_dataframe(
-        mvt_results=iteration_results,
-        output_info=output_info,
-        bin_width_ms=bin_width_ms,
-        total_runs=NN_analysis
-    )
-
-    mvt_ms = MVT_summary['median_mvt_ms']
-    try:
-        snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
-                               output_info=output_info,
-                               mvt_ms=mvt_ms,
-                               position=position_shift)
-    except Exception as e:
-        logging.error(f"Error computing SNR at MVT timescale: {e}")
-        snr_MVT = DEFAULT_PARAM_VALUE
-        snr_mvt_position = DEFAULT_PARAM_VALUE
-
-    final_result = create_final_result_dict(input_info,
-                             MVT_summary,
-                             snr_keys,
-                             snr_MVT=snr_MVT,
-                             snr_mvt_position=snr_mvt_position)
-    final_summary_list.append(final_result)
-
-    return final_summary_list
-
-
-
-
-
-
-
-
-
-
-
-def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
-    """
-    Performs MVT analysis by assembling a pre-generated template and feature,
-    and calculates a detailed breakdown of source counts and SNR for each component.
-    """
-    base_params = input_info['base_params']
-    analysis_settings = input_info['analysis_settings']
-    sim_params = input_info['sim_par_file']
-    template_dir_path = input_info['sim_data_path']
-    data_path_root = template_dir_path.parents[2]
-    bin_width_ms = input_info['bin_width_ms']
-    haar_python_path = input_info['haar_python_path']
-    feature_amplitude = base_params['peak_amplitude']
-    position_shift = base_params['position']
-    extra_pulse_config = analysis_settings.get('extra_pulse')
-    feature_shape = extra_pulse_config.get('pulse_shape')
-    feature_params_for_naming = { 'peak_amplitude': feature_amplitude, **{k: v for k, v in extra_pulse_config.items() if k != 'pulse_shape'} }
-    feature_dir_name = _create_param_directory_name('function', feature_shape, feature_params_for_naming)
-    feature_dir_path = data_path_root / 'function' / feature_shape / feature_dir_name
-
     t_start_analysis = base_params.get('t_start_analysis', sim_params['t_start'])
     t_stop_analysis = base_params.get('t_stop_analysis', sim_params['t_stop'])
 
@@ -1880,30 +1856,6 @@ def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
     final_summary_list.append(final_result)
 
     return final_summary_list
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -2274,116 +2226,477 @@ def GBM_MVT_analysis_det(input_info: Dict,
             print(f"GBM analysis for {output_info['file_info']} has insufficient files ({len(src_event_file_list)} < {NN_analysis}).")
             print("####################################################")
 
+    det_string = ''.join(dets)
+    det_num = len(dets)
     iteration_results = []
     #NN = len(src_event_files)
     for i in range(NN_analysis):
         iteration_seed = sim_params['random_seed'] + i
 
-        src_tte_list = []
-        bkgd_tte_list = []
-        for det in dets:
-            src_filename, bkgd_filename = sim_gbm_name_format(
-                trigger_number=trigger_number,
-                det=det,
-                name_key=name_key,
-                r_seed=iteration_seed
-            )
-            src_file_path = sim_data_path / src_filename
-            bkgd_file_path = sim_data_path / bkgd_filename
-            #src_tte_list.append(str(src_file_path))
-            #bkgd_tte_list.append(str(bkgd_file_path))
-            src_tte_list.append(GbmTte.open(str(src_file_path)).slice_time(trange))
-            bkgd_tte_list.append(GbmTte.open(str(bkgd_file_path)).slice_time(trange))
-
-        tte_src = GbmTte.merge(src_tte_list)
-        tte_bkgd = GbmTte.merge(bkgd_tte_list)
-
-        # Open the files
-        #tte_src_all = GbmTte.open(src_file)
-        #tte_bkgd_all = GbmTte.open(bkgd_file)
-
-        #tte_src = tte_src_all.slice_time([t_start, t_stop])
-        #tte_bkgd = tte_bkgd_all.slice_time([t_start, t_stop])
-
-        total_src_counts = tte_src.data.size
-        total_bkgd_counts = tte_bkgd.data.size
-        background_level_cps = total_bkgd_counts / duration
-        background_counts = background_level_cps * src_duration
-        snr_fluence = total_src_counts / np.sqrt(background_counts)
-
-        # merge the background and source
-        tte_total = GbmTte.merge([tte_src, tte_bkgd])
-
-        #try:
-        fine_bw = 0.001
-        phaii = tte_total.to_phaii(bin_by_time, fine_bw)
-        lc_total = phaii.to_lightcurve(energy_range=energy_range_nai)
-
-        snr_results_dict = _calculate_multi_timescale_snr(
-                    total_counts=lc_total.counts, sim_bin_width=0.001,
-                    back_avg_cps=total_bkgd_counts/(t_stop - t_start),
-                    search_timescales=snr_timescales
-                )
-        
-        #except Exception as e:
-        #    print(f"Error during SNR computing: {e}")
-
-        base_iter_detail = {
-                    'iteration': i + 1,
-                    'random_seed': iteration_seed,
-                    'back_avg_cps': round(background_level_cps, 2),
-                    'bkgd_counts': int(background_counts),
-                    'src_counts': total_src_counts,
-                    'S_flu': round(snr_fluence, 2),
-                    **snr_results_dict,
-                }
-
-        if i == 1:
-            output_info["file_name"] = 'combined_' + src_file_path.stem
-            output_info["combine_flag"] = True
-            output_info["dets"] = dets
-            try:
-                plot_gbm_lc(tte_total, tte_src, tte_bkgd,
-                            bkgd_cps=background_counts,
-                            model_info={
-                                    'func': None,
-                                    'func_par': None,
-                                    'base_params': sim_params,
-                                    'snr_analysis': snr_timescales
-                                },
-                                output_info=output_info
-                        )
-            except Exception as e:
-                print(f"Failed to generate representative GBM plot. Error: {e}")
-
-        # Loop through analysis bin widths
-
         try:
-            bin_width_s = bin_width_ms / 1000.0
-            phaii_hi = tte_total.to_phaii(bin_by_time, bin_width_s)
-            phaii = phaii_hi.slice_energy(energy_range_nai)
-            data = phaii.to_lightcurve()
+            src_tte_list = []
+            bkgd_tte_list = []
+            for det in dets:
+                src_filename, bkgd_filename = sim_gbm_name_format(
+                    trigger_number=trigger_number,
+                    det=det,
+                    name_key=name_key,
+                    r_seed=iteration_seed
+                )
+                src_file_path = sim_data_path / src_filename
+                bkgd_file_path = sim_data_path / bkgd_filename
+                #src_tte_list.append(str(src_file_path))
+                #bkgd_tte_list.append(str(bkgd_file_path))
+                src_tte_list.append(GbmTte.open(str(src_file_path)).slice_time(trange))
+                bkgd_tte_list.append(GbmTte.open(str(bkgd_file_path)).slice_time(trange))
 
-            mvt_res = run_mvt_in_subprocess(data.counts,
-                                            bin_width_s=bin_width_s,
-                                            haar_python_path=haar_python_path)
-            plt.close('all')
-            mvt_val = mvt_res['mvt_ms']
-            mvt_err = mvt_res['mvt_err_ms']
+            tte_src = GbmTte.merge(src_tte_list)
+            tte_bkgd = GbmTte.merge(bkgd_tte_list)
+
+            # Open the files
+            #tte_src_all = GbmTte.open(src_file)
+            #tte_bkgd_all = GbmTte.open(bkgd_file)
+
+            #tte_src = tte_src_all.slice_time([t_start, t_stop])
+            #tte_bkgd = tte_bkgd_all.slice_time([t_start, t_stop])
+
+            total_src_counts = tte_src.data.size
+            total_bkgd_counts = tte_bkgd.data.size
+            background_level_cps = total_bkgd_counts / duration
+            background_counts = background_level_cps * src_duration
+            snr_fluence = total_src_counts / np.sqrt(background_counts)
+
+            # merge the background and source
+            tte_total = GbmTte.merge([tte_src, tte_bkgd])
+
+            #try:
+            fine_bw = 0.001
+            phaii = tte_total.to_phaii(bin_by_time, fine_bw)
+            lc_total = phaii.to_lightcurve(energy_range=energy_range_nai)
+
+            snr_results_dict = _calculate_multi_timescale_snr(
+                        total_counts=lc_total.counts, sim_bin_width=0.001,
+                        back_avg_cps=total_bkgd_counts/(t_stop - t_start),
+                        search_timescales=snr_timescales
+                    )
+            
+            #except Exception as e:
+            #    print(f"Error during SNR computing: {e}")
+
+            base_iter_detail = {
+                        'iteration': i + 1,
+                        'random_seed': iteration_seed,
+                        'back_avg_cps': round(background_level_cps, 2),
+                        'bkgd_counts': int(background_counts),
+                        'src_counts': total_src_counts,
+                        'S_flu': round(snr_fluence, 2),
+                        **snr_results_dict,
+                    }
+
+            if i == 1:
+                output_info["file_name"] = 'combined_' + det_string + '_' +     src_file_path.stem
+                output_info["combine_flag"] = True
+                output_info["dets"] = dets
+                output_info["det_string"] = det_string
+                try:
+                    plot_gbm_lc(tte_total, tte_src, tte_bkgd,
+                                bkgd_cps=background_level_cps,
+                                model_info={
+                                        'func': None,
+                                        'func_par': None,
+                                        'base_params': sim_params,
+                                        'snr_analysis': snr_timescales
+                                    },
+                                    output_info=output_info
+                            )
+                except Exception as e:
+                    print(f"Failed to generate representative GBM plot. Error: {e}")
+
+            # Loop through analysis bin widths
+
+            try:
+                bin_width_s = bin_width_ms / 1000.0
+                phaii_hi = tte_total.to_phaii(bin_by_time, bin_width_s)
+                phaii = phaii_hi.slice_energy(energy_range_nai)
+                data = phaii.to_lightcurve()
+
+                mvt_res = run_mvt_in_subprocess(data.counts,
+                                                bin_width_s=bin_width_s,
+                                                haar_python_path=haar_python_path)
+                plt.close('all')
+                mvt_val = mvt_res['mvt_ms']
+                mvt_err = mvt_res['mvt_err_ms']
+            except Exception as e:
+                print(f"Error during MVT calculation for bin width {bin_width_ms} ms: {e}")
+                mvt_val = -100
+                mvt_err = -100
+
+            iter_detail = {**base_iter_detail,
+                            'analysis_bin_width_ms': bin_width_ms,
+                            'mvt_ms': round(mvt_val, 4),
+                            'mvt_err_ms': round(mvt_err, 4),
+                            **sim_params}
+            iteration_results.append(iter_detail)
         except Exception as e:
-            print(f"Error during MVT calculation for bin width {bin_width_ms} ms: {e}")
-            mvt_val = -100
-            mvt_err = -100
+            logging.warning(f"Failed analysis on realization {i}. \nError: {e}")
+            iteration_results.append({'iteration': i + 1,
+                                            'random_seed': sim_params['random_seed'] + i,
+                                            'analysis_bin_width_ms': bin_width_ms,
+                                            'mvt_ms': DEFAULT_PARAM_VALUE,
+                                            'mvt_err_ms': DEFAULT_PARAM_VALUE,
+                                            'back_avg_cps': DEFAULT_PARAM_VALUE,
+                                            'bkgd_counts': DEFAULT_PARAM_VALUE,
+                                            'src_counts': DEFAULT_PARAM_VALUE,
+                                            'S_flu': DEFAULT_PARAM_VALUE,
+                                            **base_params,
+                                            **snr_results_dict})
+            
+    final_summary_list = []
+    MVT_summary, snr_keys = analysis_mvt_results_to_dataframe(
+        mvt_results=iteration_results,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        total_runs=NN_analysis
+    )
 
-        iter_detail = {**base_iter_detail,
-                        'analysis_bin_width_ms': bin_width_ms,
-                        'mvt_ms': round(mvt_val, 4),
-                        'mvt_err_ms': round(mvt_err, 4),
-                        **sim_params}
-        iteration_results.append(iter_detail)
+    mvt_ms = MVT_summary['median_mvt_ms']
+    try:
+        if mvt_ms > 0:
+            snr_MVT, snr_mvt_position = compute_snr_for_mvt_GBM(input_info=input_info,
+                                output_info=output_info,
+                                mvt_ms=mvt_ms)
+        else:
+            snr_MVT = DEFAULT_PARAM_VALUE
+            snr_mvt_position = DEFAULT_PARAM_VALUE
+    except Exception as e:
+        logging.error(f"Error computing SNR at MVT timescale: {e}")
+        snr_MVT = DEFAULT_PARAM_VALUE
+        snr_mvt_position = DEFAULT_PARAM_VALUE
+
+    final_result = create_final_result_dict(input_info,
+                             MVT_summary,
+                             snr_keys,
+                             snr_MVT=snr_MVT,
+                             snr_mvt_position=snr_mvt_position)
+    final_summary_list.append(final_result)
 
 
-    return iteration_results, NN_analysis
+    return final_summary_list
+
+
+
+
+def calculate_snr(src_files, bkgd_files, trange, bin_width_ms, energy_range=(8.0, 900.0)):
+    """
+    Calculates peak SNR from source and background TTE files.
+
+    This function can handle a single pair of files (str or Path) or a list of
+    file pairs. If lists are provided, it calculates the SNR of the combined
+    light curve.
+
+    Args:
+        src_files (str, Path, or list): A single path or list of paths to source TTE files.
+        bkgd_files (str, Path, or list): A single path or list of paths to background TTE files.
+        trange (tuple): The (start, stop) time range for the analysis.
+        bin_width_ms (float): The bin width for the light curve in milliseconds.
+        energy_range (tuple, optional): The energy range for the light curve. Defaults to (8.0, 900.0).
+
+    Returns:
+        float: The calculated peak SNR. Returns 0.0 on error.
+        
+    Raises:
+        ValueError: If the number of source and background files do not match.
+    """
+    # --- 1. Normalize inputs to be lists ---
+    if isinstance(src_files, (str, Path)):
+        src_files = [src_files]
+    if isinstance(bkgd_files, (str, Path)):
+        bkgd_files = [bkgd_files]
+
+    if len(src_files) != len(bkgd_files):
+        raise ValueError("The number of source files must match the number of background files.")
+
+    src_tte_list, bkgd_tte_list = [], []
+    
+    try:
+        # --- 2. Load and slice all TTE file pairs ---
+        # The zip function ensures we match src_file[i] with bkgd_file[i]
+        for src_path, bkgd_path in zip(src_files, bkgd_files):
+            src_tte_list.append(GbmTte.open(str(src_path)).slice_time(trange))
+            bkgd_tte_list.append(GbmTte.open(str(bkgd_path)).slice_time(trange))
+
+        if not src_tte_list:
+            return 0.0
+
+        # --- 3. Merge TTEs into a single source and background object ---
+        combined_src_tte = GbmTte.merge(src_tte_list)
+        combined_bkgd_tte = GbmTte.merge(bkgd_tte_list)
+        
+        # --- 4. Calculate background rate from combined background data ---
+        duration = trange[1] - trange[0]
+        if duration <= 0:
+            return 0.0
+        background_level_cps = combined_bkgd_tte.data.size / duration
+        
+        # --- 5. Create combined light curve ---
+        total_tte = GbmTte.merge([combined_src_tte, combined_bkgd_tte])
+        bw_s = bin_width_ms / 1000.0
+        
+        phaii = total_tte.to_phaii(bin_by_time, bw_s, time_range=trange)
+        lc_total = phaii.to_lightcurve(energy_range=energy_range)
+
+        # --- 6. Calculate final SNR ---
+        expected_bkgd_in_bin = background_level_cps * bw_s
+        if expected_bkgd_in_bin <= 0 or not lc_total.counts.any():
+            return 0.0
+        
+        peak_counts = np.max(lc_total.counts)
+        snr = peak_counts / np.sqrt(expected_bkgd_in_bin)
+
+        return snr, round(peak_counts, 2), round(expected_bkgd_in_bin, 2), round(background_level_cps, 2)
+
+    except FileNotFoundError as e:
+        print(f"Warning: Could not find a file. {e}")
+        return 0.0
+    except Exception as e:
+        print(f"An error occurred during SNR calculation: {e}")
+        return 0.0
+
+
+# Assume calculate_snr and sim_gbm_name_format are defined as in previous examples
+
+def find_optimal_detectors_for_run(dets, sim_data_path, name_key, iteration_seed, trange, bin_width_ms, energy_range, trigger_number=0):
+    """
+    Analyzes a single simulation run to find the optimal detector combination.
+
+    Args:
+        dets (list): List of detector names to analyze (e.g., ['n0', 'n1', ...]).
+        sim_data_path (Path): Path to the simulation data directory.
+        name_key (str): The name key for the simulation files.
+        iteration_seed (int): The specific random seed for this run.
+        trange (tuple): The (start, stop) time range for analysis.
+        bin_width_ms (float): The bin width in milliseconds.
+        energy_range (tuple): The energy range for the light curve.
+        trigger_number (int): The trigger number for file naming.
+
+    Returns:
+        tuple: A tuple containing:
+            - list: The list of detector names in the optimal combination.
+            - float: The maximum SNR achieved.
+    """
+    detector_snrs = []
+    det_single_snr = []
+    # --- 1. Rank individual detectors ---
+    for det in dets:
+        src_filename, bkgd_filename = sim_gbm_name_format(
+            trigger_number=trigger_number, det=det, name_key=name_key, r_seed=iteration_seed
+        )
+        src_file = sim_data_path / src_filename
+        bkgd_file = sim_data_path / bkgd_filename
+
+        snr, peak_counts, expected_bkgd_in_bin, background_level_cps = calculate_snr(src_file, bkgd_file, trange, bin_width_ms, energy_range)
+        detector_snrs.append({'src_file': src_file, 'bkgd_file': bkgd_file, 'det': det, 'snr': snr, 'peak_counts': peak_counts, 'expected_bkgd_in_bin': expected_bkgd_in_bin, 'background_level_cps': background_level_cps})
+        det_single_snr.append({'det': det, 'snr': round(snr,2), 'peak_counts': peak_counts, 'expected_bkgd_in_bin': expected_bkgd_in_bin, 'background_level_cps': round(background_level_cps,2)})
+
+    ranked_detectors = sorted(detector_snrs, key=lambda x: x['snr'], reverse=True)
+
+
+    # --- 2. Iteratively find the best combination ---
+    snr_evolution = []
+    detector_combinations = []
+    final_result =[]
+    for k in range(1, len(ranked_detectors) + 1):
+        src_files_to_combine = [d['src_file'] for d in ranked_detectors[:k]]
+        bkgd_files_to_combine = [d['bkgd_file'] for d in ranked_detectors[:k]]
+        dets_list = [d['det'] for d in ranked_detectors[:k]]
+        detector_combinations.append(dets_list)
+
+        combined_snr, peak_counts, expected_bkgd_in_bin, background_level_cps = calculate_snr(src_files_to_combine, bkgd_files_to_combine, trange, bin_width_ms, energy_range)
+        snr_evolution.append({'k': k, 'snr': combined_snr, 'dets': dets_list, 'peak_counts': peak_counts, 'expected_bkgd_in_bin': expected_bkgd_in_bin, 'background_level_cps': background_level_cps})
+        final_result.append({'dets': dets_list, 'snr': combined_snr, 'det_number': k, 'max_flag': 0, 'peak_counts': peak_counts, 'expected_bkgd_in_bin': expected_bkgd_in_bin, 'background_level_cps': background_level_cps})
+
+    # --- 3. Identify the optimal set ---
+    if not snr_evolution:
+        return [], 0.0
+
+    best_result = max(snr_evolution, key=lambda x: x['snr'])
+    best_k = best_result['k']
+    
+    optimal_detectors = [d['det'] for d in ranked_detectors[:best_k]]
+    max_snr = best_result['snr']
+    for res in final_result:
+        if res['det_number'] == best_k:
+            res['max_flag'] = 1
+
+    return final_result, optimal_detectors, max_snr, det_single_snr
+
+
+
+def GBM_det_analysis(input_info: dict, output_info: dict):
+    """
+    Performs analysis across multiple simulation runs to find the most
+    consistently optimal detector combination.
+    """
+    sim_data_path = input_info['sim_data_path']
+    snr_bw_ms = input_info.get('bin_width_ms', 64)
+    #snr_bw_ms = input_info.get('snr_bw_ms', 64)
+    sim_params_file = input_info['sim_par_file']
+    base_params = input_info['base_params']
+    
+    if isinstance(sim_params_file, dict):
+        sim_params = sim_params_file 
+    else:
+        with open(sim_params_file, 'r') as f:
+            sim_params = yaml.safe_load(f)
+
+    NN_analysis = base_params['num_analysis']
+    dets = [f'n{i}' for i in range(10)] + ['na', 'nb']
+    
+    # --- Extract parameters ---
+    en_lo = sim_params.get('en_lo', 8.0)
+    en_hi = sim_params.get('en_hi', 900.0)
+    energy_range_nai = (en_lo, en_hi)
+    trange = (sim_params['t_start'], sim_params['t_stop'])
+    name_key = sim_params.get('name_key', 'test')
+    trigger_number = sim_params.get('trigger_number', 0)
+
+    all_runs_optimal_lists = []
+    single_det_snr_list = []
+    all_combined_snr_list = []
+    
+    #print("--- Starting Detector Optimization Analysis ---")
+    # --- 1. Loop through each simulation run to gather data ---
+    for i in range(NN_analysis):
+        iteration_seed = sim_params['random_seed'] + i
+        #print(f"Analyzing run {i+1}/{NN_analysis} (seed: {iteration_seed})...")
+
+        # This function still calculates the optimal list for THIS run (for the modal method)
+        all_det_snr, optimal_dets, max_snr, single_det_snrs = find_optimal_detectors_for_run(
+            dets=dets,
+            sim_data_path=sim_data_path,
+            name_key=name_key,
+            iteration_seed=iteration_seed,
+            trange=trange,
+            bin_width_ms=snr_bw_ms,
+            energy_range=energy_range_nai,
+            trigger_number=trigger_number
+        )
+        
+        all_runs_optimal_lists.append(optimal_dets)
+        all_combined_snr_list.extend(all_det_snr)
+        single_det_snr_list.append({'iteration': i + 1, 'detector_snrs': single_det_snrs})
+    
+    # Save the detailed results of the first run for reference
+    detailed_df = pd.DataFrame(all_combined_snr_list)
+    detailed_csv_path = output_info['file_path'] / f"Detailed_combined_Det_Optimization_{output_info['file_info']}_{snr_bw_ms}ms.csv"
+    detailed_df.to_csv(detailed_csv_path, index=False)
+    #print(f"Detailed SINGLE detector SNR saved to \n{detailed_csv_path}")
+
+    # --- 2. Create the detailed wide-format SNR table ---
+    records_for_df = []
+    for run_result in single_det_snr_list:
+        row_data = {'iteration': run_result['iteration']}
+        snr_map = {item['det']: item['snr'] for item in run_result['detector_snrs']}
+        row_data.update(snr_map)
+        records_for_df.append(row_data)
+
+    all_det_snrs_df = pd.DataFrame(records_for_df)
+    column_order = ['iteration'] + dets
+    all_det_snrs_df = all_det_snrs_df.reindex(columns=column_order)
+    all_det_snrs_csv_path = output_info['file_path'] / f"Detailed_Single_Det_SNRs_{output_info['file_info']}_{snr_bw_ms}ms.csv"
+    all_det_snrs_df.to_csv(all_det_snrs_csv_path, index=False, float_format='%.2f')
+    #print(f"\nIndividual detector SNR table saved to:\n{all_det_snrs_csv_path}")
+
+    # --- 3. Create the Mean SNR Ranking and Cumulative Combinations ---
+    snr_data = all_det_snrs_df.drop(columns=['iteration'])
+    mean_snrs = snr_data.mean()
+    final_ranked_detectors = mean_snrs.sort_values(ascending=False).index.tolist()
+    
+    cumulative_combinations = []
+    for k in range(1, len(final_ranked_detectors) + 1):
+        cumulative_combinations.append(final_ranked_detectors[:k])
+    
+    #print("\n--- Final Ranking Based on Mean SNR Across All Runs ---")
+    #print(f"Rank Order: {final_ranked_detectors}")
+
+    ### NEW ### --- 4. Test the Cumulative Combinations to Find the Best One ---
+    snr_evolution_results = []
+    #print("\n--- Evaluating combinations based on mean ranking ---")
+    for combo in cumulative_combinations:
+        run_snrs = []
+        # For each combination, we must test it against every simulation run
+        for i in range(NN_analysis):
+            iteration_seed = sim_params['random_seed'] + i
+            src_files = [sim_data_path / sim_gbm_name_format(trigger_number, det, name_key, iteration_seed)[0] for det in combo]
+            bkgd_files = [sim_data_path / sim_gbm_name_format(trigger_number, det, name_key, iteration_seed)[1] for det in combo]
+            
+            # Use your robust SNR function to get the combined SNR for this specific run
+            combined_snr_for_run, peak_counts, back_counts, back_cps = calculate_snr(src_files, bkgd_files, trange, snr_bw_ms, energy_range_nai)
+            run_snrs.append({'combined_snr': combined_snr_for_run, 'peak_counts': peak_counts, 'back_counts': back_counts, 'back_cps': back_cps})
+        
+        # The performance of this combination is its average SNR across all runs
+        avg_combined_snr = np.mean([item['combined_snr'] for item in run_snrs])
+        avg_peak_counts = np.mean([item['peak_counts'] for item in run_snrs])
+        avg_back_counts = np.mean([item['back_counts'] for item in run_snrs])
+        avg_back_cps = np.mean([item['back_cps'] for item in run_snrs])
+        snr_evolution_results.append({
+            'num_dets': len(combo),
+            'detectors': ','.join(combo),
+            'mean_combined_snr': avg_combined_snr,
+            'avg_peak_counts': round(avg_peak_counts, 2),
+            'avg_back_counts': round(avg_back_counts, 2),
+            'avg_back_cps': round(avg_back_cps, 2),
+            'best_flag': 0
+        })
+        #print(f"  {len(combo):>2} Detectors ({','.join(combo)}): Mean Combined SNR = {avg_combined_snr:.2f}")
+
+    # Find the best result from the evolution list
+    evolution_df = pd.DataFrame(snr_evolution_results)
+    best_result_mean_rank = evolution_df.loc[evolution_df['mean_combined_snr'].idxmax()]
+    best_combo_str = best_result_mean_rank['detectors']
+    for result in snr_evolution_results:
+        if result['detectors'] == best_combo_str:
+            result['best_flag'] = 1
+            break  # stop once we've found and set the best one
+    
+    # Step 3: Update the original list to set best_flag = 1
+    for entry in snr_evolution_results:
+        if entry['detectors'] == best_combo_str:
+            entry['best_flag'] = 1
+            break  # Stop after setting it once
+
+    evolution_df = pd.DataFrame(snr_evolution_results)
+
+
+    mean_rank_optimal_list = best_result_mean_rank['detectors'].split(',')
+    
+    # Save the evolution for plotting
+    evolution_csv_path = output_info['file_path'] / f"Mean_Rank_SNR_Evolution_{output_info['file_info']}_{snr_bw_ms}ms.csv"
+    evolution_df.to_csv(evolution_csv_path, index=False)
+    #print(f"\nSNR evolution for mean-rank method saved to:\n{evolution_csv_path}")
+
+    ### MODIFIED ### --- 5. Find the most common optimal list (Modal Method) ---
+    tuple_results = [tuple(sorted(res)) for res in all_runs_optimal_lists]
+    most_common_tuple = Counter(tuple_results).most_common(1)[0][0]
+    modal_optimal_list = list(most_common_tuple)
+    
+    #print("\n--- Analysis Complete ---")
+    #print(f"Method 1 (Modal): The most frequently optimal list is: {modal_optimal_list}")
+    #print(f"Method 2 (Mean Rank): The best combination is: {mean_rank_optimal_list} with an average SNR of {best_result_mean_rank['mean_combined_snr']:.2f}")
+    #print("----------------------------------------------------")
+    #print(cumulative_combinations)
+    #print("----------------------------------------------------")
+
+
+    yaml_path = output_info['file_path'] / f"Optimal_Detector_Lists_{output_info['file_info']}_{snr_bw_ms}ms.yaml"
+
+    write_yaml({'det_combinations': cumulative_combinations}, yaml_path)
+
+    #print(f"Saved detector combinations to YAML:\n{yaml_path}")
+
+    return snr_evolution_results
+
+
 
 
 def GBM_MVT_analysis_complex(input_info: Dict, output_info: Dict):

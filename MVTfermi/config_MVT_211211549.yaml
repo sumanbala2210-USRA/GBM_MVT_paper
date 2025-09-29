@@ -1,0 +1,18 @@
+# config_MVT_fermi.yaml
+# Configuration for MVT Fermi simulations
+# This file contains the settings for running MVT simulations with various triggers.
+trigger_number: '211211549'
+background_intervals: 0 # [[-11.67, -1.04], [57.5, 69.58]]
+T90: 0
+det_list: 0
+T0: 0
+tstart: 0
+tstop: 0
+en_lo: 8
+en_hi: 900
+cores: 10
+time_resolved: False
+bin_width_ms: 0.1
+data_path: "/Users/sbala/work/gdt_dev2/mvt_fermi_golkhu_time_data/MVTfermi/"
+output_path: "/Users/sbala/work/gdt_dev2/mvt_fermi_golkhu_time_data/MVTfermi/"
+#file_name: bn211211549_bw_0.0001_dets_n1_n2_n3_n4_n5_n6_n7_n8_n9_en_8to900keV.npz

@@ -71,7 +71,8 @@ class AbstractPulseSimulationTask(BaseSimulationTask):
         #exit()
 
         #print_nested_dict(self.params)
-        #exit()
+        #print(type(self.params['pulse_shape']))
+        #exit(1)
 
         dets = convert_det_to_list(self.params['det'])
         self.params['det'] = dets

@@ -286,8 +286,6 @@ def complex_pulse_wrapper(t, main_amplitude, position, overall_amplitude=1.0):
             ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
             ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
             ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
-            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
-            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
             #('gaussian', (2*overall_amp,  4.95, 0.01)),
             #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
             #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
@@ -322,14 +320,6 @@ def complex_pulse_wrapper_short(t, main_amplitude, position, overall_amplitude=1
             ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
             ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
             ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
-            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
-            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
-            #('gaussian', (2*overall_amp,  4.95, 0.01)),
-            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
-            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
-            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
-            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
-            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
             ]
         }
     
@@ -358,14 +348,10 @@ def complex_pulse_wrapper_long(t, main_amplitude, position, overall_amplitude=1.
             ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
             ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
             ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
-            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
-            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
-            #('gaussian', (2*overall_amp,  4.95, 0.01)),
             ('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
             ('gaussian', (0.44*overall_amp, 6.8, 0.15)),
             ('gaussian', (0.38*overall_amp, 7.5, 0.2)),
             ('gaussian', (0.2*overall_amp,  10.5, 0.9)),
-            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
             ]
         }
     
@@ -393,14 +379,7 @@ def complex_pulse_wrapper_short_2p10ms(t, main_amplitude, position, overall_ampl
             ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
             ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
             ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
-            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
-            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
             ('gaussian', (2*overall_amp,  4.95, 0.01)),
-            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
-            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
-            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
-            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
-            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
             ]
         }
     
@@ -428,14 +407,7 @@ def complex_pulse_wrapper_short_2p3ms(t, main_amplitude, position, overall_ampli
             ('norris', (0.5*overall_amp,  7.1, 0.09, 0.7)),
             ('norris', (0.3*overall_amp,  7.9, 0.1, 1.0)),
             ('norris', (0.36*overall_amp, 4.5, 0.3, 0.9)),
-            #('fred', (0.16*overall_amp, 12.0, 0.4, 2.5)),
-            #('fred', (0.14*overall_amp, 15.5, 0.2, 0.8)),
             ('gaussian', (2*overall_amp,  4.95, 0.003)),
-            #('norris', (0.3*overall_amp,  9.0, 2.0, 1.0)),    # Broad base component
-            #('gaussian', (0.44*overall_amp, 6.8, 0.15)),
-            #('gaussian', (0.38*overall_amp, 7.5, 0.2)),
-            #('gaussian', (0.2*overall_amp,  10.5, 0.9)),
-            #('gaussian', (0.12*overall_amp, 14.0, 1.0)),
             ]
         }
     
