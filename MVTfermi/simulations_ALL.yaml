@@ -119,7 +119,7 @@ simulation_campaigns:
     en_lo: 8.0
     en_hi: 900.0
     gbm_data_path: None
-    total_sim: 30
+    total_sim: 100
 
 
   # List the pulse shapes from the library you want to run in this campaign.

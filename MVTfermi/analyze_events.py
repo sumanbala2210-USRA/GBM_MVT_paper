@@ -415,13 +415,13 @@ def main(config_filepath: str):
     email_body = f"Analysis complete for {config_filepath}! The summary is attached and also saved to:\n{final_results_csv_path}"
 
     # Call the function
-    """
+    
     send_email(
         subject="Analysis Complete: Results Attached",
         body=email_body,
         attachment_path=final_results_csv_path
     )
-    """
+    
 
 
 if __name__ == '__main__':

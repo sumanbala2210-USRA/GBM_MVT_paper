@@ -351,8 +351,11 @@ def main(config_filepath: str):
                 logging.error(f"A generation task failed: {e}", exc_info=True)
 
     logging.info("✅ All event files have been generated.")
-    #send_email(f"All event files have been generated.\nAt {data_path}")
-    # You might want to send an email notification here
+    email_body = f"Fine generation is complete for {config_filepath}!"
+    send_email(
+        subject="All files have been generated successfully!!",
+        body=email_body
+    )
 
 if __name__ == '__main__':
     # Set up the command-line argument parser
