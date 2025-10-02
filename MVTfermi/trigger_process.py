@@ -40,13 +40,41 @@ from tqdm import tqdm
 #from LIB_time import _calculate_multi_timescale_snr, analysis_mvt_time_resolved_results_to_dataframe, create_final_GBM_plot_with_MVT, analysis_mvt_results_to_dataframe
 
 from TTE_SIM_v2 import _calculate_multi_timescale_snr, analysis_mvt_time_resolved_results_to_dataframe, create_final_GBM_plot_with_MVT, analysis_mvt_results_to_dataframe, write_yaml
+from SIM_lib import send_email
 
 CONFIG_FILE = 'config_MVT_fermi.yaml'
 MVT_CONFIG_FILE = 'simulations_ALL.yaml'
 MAX_WORKERS = os.cpu_count() - 2
 #time_resolved = False # config_MVT['time_resolved']
 
+def setup_publication_style():
+    """
+    Sets Matplotlib parameters for high-quality, publication-ready plots.
+    This function uses a serif font, larger text sizes, and inward-pointing ticks.
+    """
+    # Using a style sheet is a good base. 'seaborn-v0_8-paper' is clean.
+    plt.style.use('seaborn-v0_8-paper')
 
+    params = {
+        'font.family': 'serif',
+        'font.serif': ['Times New Roman', 'DejaVu Serif'], # A classic academic font
+        'font.size': 14,               # Base font size
+        'axes.labelsize': 16,          # X and Y labels
+        'axes.titlesize': 16,          # Title for individual subplots
+        'xtick.labelsize': 14,         # X-axis tick labels
+        'ytick.labelsize': 14,         # Y-axis tick labels
+        'legend.fontsize': 14,         # Legend font size
+        'figure.titlesize': 18,        # Main figure title (suptitle)
+        'lines.linewidth': 1.5,
+        'xtick.direction': 'in',       # Ticks point inward
+        'ytick.direction': 'in',
+        'xtick.top': True,             # Display ticks on all 4 sides
+        'ytick.right': True,
+        'savefig.dpi': 300,            # High resolution for raster elements
+        'savefig.bbox': 'tight',       # No wasted whitespace
+    }
+    plt.rcParams.update(params)
+    print("Matplotlib style set for publication quality.")
 
 def download_data(trigger_number, path, flags={'tte':False, 'rsp':False, 'cat':False, 'trigdat':False}):
     try:
@@ -440,7 +468,7 @@ def plot_gbm_lightcurves(trigger_directory, tte_files, src_range, back_intervals
 
 # --- 3. Refactored Analysis Function ---
 
-def find_optimal_detectors(trigger_number, trigger_directory, bw=0.064, config_dict=None):
+def find_optimal_detectors(trigger_number, trigger_directory, bw=0.064, config_dict=None, plot_flag=False):
     """
     Analyzes all detectors to find the combination that maximizes the combined SNR.
     This function is now much cleaner as it uses the core utility functions.
@@ -489,18 +517,92 @@ def find_optimal_detectors(trigger_number, trigger_directory, bw=0.064, config_d
     print(f"\nMaximum SNR of {best_result['snr']:.2f} found with the top {best_k} detectors.")
     
     # Return everything needed for the final report/plots
-    return optimal_files, snr_evolution, src_range, back_intervals, trange_total, source_par_dict
+    if plot_flag:
+        return optimal_files, snr_evolution, ranked_detectors, src_range, back_intervals, trange_total, source_par_dict
+    else:
+        return optimal_files, snr_evolution, src_range, back_intervals, trange_total, source_par_dict
 
 
-# --- 4. New Main Script / Workflow ---
+
+
+
+def plot_gbm_lightcurves(trigger_directory, tte_files, src_range, back_intervals, bw=0.064, suffix=""):
+    """
+    Generates and saves two grid plots of GBM light curves (shared and independent y-axes).
+    
+    MODIFICATIONS:
+    - Calls setup_publication_style() for professional aesthetics.
+    - Saves plots in PDF format for lossless scaling.
+    - Simplified layout handling.
+    """
+    # --- NEW: Set the style for this plot ---
+    setup_publication_style()
+
+    trange_total = (back_intervals[0][0], back_intervals[1][1])
+    lcs_src, lcs_total, lc_comb_src, lc_comb_total, titles = generate_lightcurves(
+        tte_files, src_range, trange_total, bw
+    )
+
+    num_plots = len(lcs_src) + (1 if lc_comb_src else 0)
+    cols, rows = 4, int(np.ceil(num_plots / 4))
+
+    # Internal helper to draw on axes
+    def _draw_plots(axes, is_shared_y):
+        ax_flat = axes.flatten()
+        for i, (lc_s, lc_t, title) in enumerate(zip(lcs_src, lcs_total, titles)):
+            ax = ax_flat[i]
+            # Use detector name for title, e.g., 'n0' from 'glg_tte_n0_bn...'
+            det_name = title.split('_')[2]
+            ax.step(lc_s.centroids, lc_s.counts, where='post')
+            #ax.set_title(f'Detector {det_name.upper()}')
+            ax.grid(True, linestyle='--', alpha=0.5)
+            snr = calculate_snr(lc_t, back_intervals)
+            ax.text(0.95, 0.95, f"Det: {det_name.lower()}\nSNR: {snr:.1f}", transform=ax.transAxes, ha='right', va='top',
+                    bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.8), fontsize=12)
+
+        if lc_comb_src:
+            ax = ax_flat[len(lcs_src)]
+            ax.step(lc_comb_src.centroids, lc_comb_src.counts, where='post', color='black', linewidth=2.0)
+            ax.set_title('Combined')
+            ax.grid(True, linestyle='--', alpha=0.5)
+            snr = calculate_snr(lc_comb_total, back_intervals)
+            ax.text(0.95, 0.95, f"SNR: {snr:.1f}", transform=ax.transAxes, ha='right', va='top',
+                    bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.8), fontsize=12)
+
+        for j in range(num_plots, len(ax_flat)):
+            ax_flat[j].axis('off')
+
+    # Plot 1: Shared Y-Axes
+    fig1, axes1 = plt.subplots(rows, cols, figsize=(4 * cols, 3.5 * rows), sharex=True, sharey=True)
+    _draw_plots(axes1, is_shared_y=True)
+    fig1.supxlabel(f'Time since trigger (s)')
+    fig1.supylabel('Counts / bin')
+    fig1.suptitle(f'Detector Light Curves (Shared Y, {bw * 1000:.1f} ms){suffix}')
+    # MODIFICATION: Save as PDF
+    output_path1 = Path(trigger_directory) / f"lc_grid_shared_y{suffix}_{bw * 1000:.0f}ms.pdf"
+    fig1.savefig(output_path1)
+    plt.close(fig1)
+    print(f"✅ Saved shared-axis plot: \n   {output_path1}")
+
+    # Plot 2: Independent Y-Axes
+    fig2, axes2 = plt.subplots(rows, cols, figsize=(4 * cols, 3.5 * rows), sharex=True, sharey=False)
+    _draw_plots(axes2, is_shared_y=False)
+    fig2.supxlabel(f'Time since trigger (s)')
+    fig2.supylabel('Counts / bin')
+    fig2.suptitle(f'Detector Light Curves (Independent Y, {bw * 1000:.1f} ms){suffix}')
+    # MODIFICATION: Save as PDF
+    output_path2 = Path(trigger_directory) / f"lc_grid_indep_y{suffix}_{bw * 1000:.0f}ms.pdf"
+    fig2.savefig(output_path2)
+    plt.close(fig2)
+    print(f"✅ Saved independent-axis plot: \n   {output_path2}")
+
 
 def full_analysis_workflow(trigger_num, trigger_dir, bin_width=0.064, config_dict=None):
     """
     A single function to run the entire analysis and plotting workflow.
     """
-    trigger_dir = Path(trigger_dir) # Use pathlib for easier path handling
+    trigger_dir = Path(trigger_dir)
 
-    # Part 1: Find the best detectors and get the necessary info for plotting
     best_detector_files, snr_results, src_range, back_intervals, trange_total, source_par_dict = find_optimal_detectors(
         trigger_num, trigger_dir, bw=bin_width, config_dict=config_dict
     )
@@ -508,46 +610,128 @@ def full_analysis_workflow(trigger_num, trigger_dir, bin_width=0.064, config_dic
     print("\n--- Final Result ---")
     print(f"Optimal detectors: {[os.path.basename(f)[8:10] for f in best_detector_files]}\n")
 
-    # Part 2: Generate the plots for the OPTIMAL detectors
     plot_gbm_lightcurves(
         trigger_dir,
         best_detector_files,
         src_range,
         back_intervals,
         bw=bin_width,
-        suffix="_optimal" # Add a suffix to distinguish these plots
+        suffix="_optimal"
     )
 
-    # Part 3: Generate the SNR evolution plot
+    # --- MODIFICATION: SNR evolution plot ---
+    # 1. Set the publication style
+    setup_publication_style()
+    
     k_values = [res['k'] for res in snr_results]
     snr_values = [res['snr'] for res in snr_results]
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(k_values, snr_values, 'o-', color='royalblue')
-    plt.title('SNR vs. Number of Combined Detectors')
-    plt.xlabel('Number of Detectors (Ranked by SNR)')
-    plt.ylabel('Combined SNR')
-    plt.xticks(k_values)
-    plt.grid(True, alpha=0.5)
+    # 2. Create figure and axes objects for more control
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(k_values, snr_values, 'o-', color='royalblue', label='Combined SNR')
+    ax.set_title(f'SNR Evolution for GRB {trigger_num}')
+    ax.set_xlabel('Number of Detectors (Ranked by Individual SNR)')
+    ax.set_ylabel('Combined Signal-to-Noise Ratio (SNR)')
+    ax.set_xticks(k_values)
+    ax.grid(True, alpha=0.5)
     
-    # Highlight the maximum SNR
-    best_k = max(snr_results, key=lambda x: x['snr'])['k']
-    best_snr = max(snr_results, key=lambda x: x['snr'])['snr']
-    plt.axvline(best_k, color='red', linestyle='--', label=f'Optimal k={best_k}')
-    plt.axhline(best_snr, color='red', linestyle='--')
-    plt.legend()
+    best_k_result = max(snr_results, key=lambda x: x['snr'])
+    best_k = best_k_result['k']
+    best_snr = best_k_result['snr']
     
-    snr_evo_path = trigger_dir / f"snr_evolution_bn{trigger_num}_{int(bin_width*1000)}ms.png"
-    plt.savefig(snr_evo_path)
-    plt.close()
-    print(f"SNR evolution plot saved to: \n{snr_evo_path}")
+    # 3. Highlight the maximum point more clearly
+    ax.axvline(best_k, color='crimson', linestyle='--', label=f'Optimal k={best_k} (SNR={best_snr:.2f})')
+    ax.plot(best_k, best_snr, 'o', markersize=12, color='crimson', fillstyle='none', markeredgewidth=2)
+    ax.legend()
+    
+    # 4. Save as PDF
+    snr_evo_path = trigger_dir / f"snr_evolution_bn{trigger_num}_{int(bin_width*1000)}ms.pdf"
+    fig.savefig(snr_evo_path)
+    plt.close(fig)
+
+    print(f"✅ SNR evolution plot saved to: \n   {snr_evo_path}")
+    
     return best_detector_files, source_par_dict
 
-# --- Example Usage ---
-# if __name__ == '__main__':
-#     trigger_number = "bn080916009"
-#     trigger_directory = "./data/bn080916009"
-#     full_analysis_workflow(trigger_number, trigger_directory, bin_width=0.064)
+
+
+def full_analysis_workflow(trigger_num, trigger_dir, bin_width=0.064, config_dict=None):
+    """
+    A single function to run the entire analysis and plotting workflow.
+    """
+    trigger_dir = Path(trigger_dir)
+
+    # MODIFICATION: Capture the new 'ranked_detectors' output
+    best_detector_files, snr_results, ranked_detectors, src_range, back_intervals, trange_total, source_par_dict = find_optimal_detectors(
+        trigger_num, trigger_dir, bw=bin_width, config_dict=config_dict, plot_flag=True
+    )
+    
+    print("\n--- Final Result ---")
+    print(f"Optimal detectors: {[os.path.basename(f)[8:10] for f in best_detector_files]}\n")
+
+    plot_gbm_lightcurves(
+        trigger_dir,
+        best_detector_files,
+        src_range,
+        back_intervals,
+        bw=bin_width,
+        suffix="_optimal"
+    )
+
+    # --- ENHANCED SNR EVOLUTION PLOT ---
+    setup_publication_style()
+    
+    # --- Data Preparation ---
+    k_values = [res['k'] for res in snr_results]
+    combined_snr_values = [res['snr'] for res in snr_results]
+    
+    # NEW: Extract individual SNRs and detector names for plotting
+    individual_snr_values = [d['snr'] for d in ranked_detectors]
+    # Extract short names like 'n0', 'n1', etc.
+    detector_names = [os.path.basename(d['file']).split('_')[2].upper() for d in ranked_detectors]
+
+    # --- Plotting ---
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    # NEW: Plot individual SNRs as a bar chart in the background
+    ax.bar(k_values, individual_snr_values, color='gray', alpha=0.5, 
+           label='Individual Detector SNR')
+
+    # Plot the cumulative SNR as a line on top
+    ax.plot(k_values, combined_snr_values, 'o-', color='royalblue', 
+            linewidth=2.5, markersize=8, label='Cumulative Combined SNR')
+
+    # --- Aesthetics and Highlighting ---
+    #ax.set_title(f'SNR Evolution for GRB {trigger_num}')
+    ax.set_xlabel('Detectors Added in Order of Rank')
+    ax.set_ylabel('Signal-to-Noise Ratio (SNR)')
+    
+    # NEW: Use detector names for the x-axis labels
+    ax.set_xticks(k_values)
+    ax.set_xticklabels(detector_names, rotation=45, ha='right')
+    ax.grid(True, alpha=0.5, axis='y') # Grid on y-axis only for clarity
+
+    # Highlight the maximum point
+    best_k_result = max(snr_results, key=lambda x: x['snr'])
+    best_k = best_k_result['k']
+    best_snr = best_k_result['snr']
+    
+    ax.axvline(best_k, color='crimson', linestyle='--', 
+                label=f'Optimal k={best_k} (SNR={best_snr:.2f})')
+    ax.plot(best_k, best_snr, 'o', markersize=12, color='crimson', 
+            fillstyle='none', markeredgewidth=2)
+    
+    ax.legend()
+    
+    # --- Saving ---
+    snr_evo_path = trigger_dir / f"snr_evolution_bn{trigger_num}_{int(bin_width*1000)}ms.pdf"
+    fig.savefig(snr_evo_path)
+    plt.close(fig)
+
+    print(f"✅ Enhanced SNR evolution plot saved to: \n   {snr_evo_path}")
+    
+    return best_detector_files, source_par_dict
+
 
 
 
@@ -650,13 +834,13 @@ def create_default_config(trigger_number):
         # but you can set explicit defaults here if you want.
         'det_list': None, 
         'time_resolved': False,
-        'total_sim': 100,
-        'bin_width_ms': 0.1
+        'total_sim': 30,
+        'bin_width_ms': 1.0
     }
 
 
 
-def main(config_dic):
+def main(config_dic, config_flag = False):
 
     with open(MVT_CONFIG_FILE, 'r') as f:
         MVT_config = yaml.safe_load(f)
@@ -736,7 +920,8 @@ def main(config_dic):
     src_interval = [t_start, t_stop]
     print(f"T0: {T0}, T90: {T90}")
     print(f"Source interval: {src_interval}")
-    selection_str = f"{round(t_start, 2)}_{round(t_stop, 2)}s"
+    det_string = "".join(det_list) if det_list else "not_specified"
+    selection_str = f"{round(t_start, 2)}_{round(t_stop, 2)}s_{det_string}"
 
     
 
@@ -859,7 +1044,7 @@ def main(config_dic):
         mvt_all_summary_path = output_path / f"mvt_summary_bn{trigger_number}_{selection_str}_{(bin_width_ms)}ms.yaml"
         write_yaml(mvt_summary_all, mvt_all_summary_path)
 
-        full_analysis_workflow(trigger_number, trigger_directory, bin_width=mvt_s, config_dict={'src_range': src_interval, 'back_intervals': back_intervals, 'trange_total': trange})
+        #full_analysis_workflow(trigger_number, trigger_directory, bin_width=mvt_s, config_dict={'src_range': src_interval, 'back_intervals': back_intervals, 'trange_total': trange})
 
     # Update the dictionary with any calculated values
     config_dic['tstart'] = t_start
@@ -878,16 +1063,26 @@ def main(config_dic):
     config_dic['mvt_step_size'] = mvt_step_size
     #config_dic.update(source_par_dict) # Add GRB parameters if available
 
-    
+
+    config_dic['det_string'] = det_string
+    config_dic['source_interval'] = src_interval
+    config_dic['energy_range'] = [en_lo, en_hi]
+    config_dic['mvt_summary'] = mvt_summary_all if not time_resolved else mvt_summary_df.to_dict()
+
+
 
     # Define the output filename
     #final_config_path = output_path / f"config_MVT_{trigger_number}.yaml"
-    final_config_path = output_path / f"config_MVT_{trigger_number}.yaml"
-    final_config_path = trigger_directory / f"config_MVT_{trigger_number}.yaml"
+    #final_config_path = output_path / f"config_MVT_{trigger_number}_{det_string}_{(bin_width_ms)}ms.yaml"
+    if config_flag:
+        final_config_path = output_path / f"config_MVT_{trigger_number}_{det_string}_sim{total_sim}_{(bin_width_ms)}ms.yaml"
+    else:
+        final_config_path = trigger_directory / f"config_MVT_{trigger_number}.yaml"
     # Write the dictionary to the YAML file
     write_yaml(config_dic, final_config_path)
         
     print(f"Final configuration saved to: {final_config_path}")
+    return final_config_path
 
 
 
@@ -914,21 +1109,35 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
+    email_flag = False
     config = None
     if args.config:
         # If -c is used, load the specified file
         print(f"Loading configuration from: {args.config}")
         with open(args.config, 'r') as f:
             config = yaml.safe_load(f)
+            email_flag = config.get('email_flag', False) # Default to False if not specified
+        config_flag = True
+        email_body = f"The MVT analysis for trigger {config['trigger_number']} is complete."
     elif args.trigger_number:
         # If -bn is used, create a default config in memory
         config = create_default_config(args.trigger_number)
+        config_flag = False
+        email_body = f"The MVT analysis for trigger {args.trigger_number} is complete."
 
     # Call the main function with the loaded or generated config dictionary
     if config:
-        main(config)
+        mvt_result_path = main(config, config_flag)
     else:
         print("Error: Could not create or load a configuration. Exiting.")
+
+    #email_body = f"The MVT analysis for trigger {trigger_number} is complete."
+    if email_flag:
+        send_email(
+            subject=f"Button!! Analysis Complete for {config['trigger_number']}:",
+            body=email_body,
+            attachment_path=mvt_result_path
+     )
 
 
 

@@ -46,6 +46,7 @@ if uploaded_file is not None:
 
     marker_col_options = [None] + columns
     marker_col = st.sidebar.selectbox("Marker Style By:", marker_col_options, index=0)
+
     
     st.sidebar.markdown("---")
     show_error_bars = st.sidebar.checkbox("Show Error Bars", value=True)
@@ -53,6 +54,7 @@ if uploaded_file is not None:
     use_log_x = st.sidebar.checkbox("Use Log Scale for X-axis")
     use_log_y = st.sidebar.checkbox("Use Log Scale for Y-axis")
     use_intensity_color = st.sidebar.checkbox("Color by Success Rate")
+
 
     st.sidebar.header("Axis Ranges (Optional)")
     col1, col2 = st.sidebar.columns(2)

@@ -98,7 +98,8 @@ for i, data_file in enumerate(data_files):
 
     ax.vertical_line = ax.axvline(params['position'], color='tab:red', linestyle='--', label='Varying Pulse Position', lw=1.0, zorder=50)
     #ax.set_xlabel("Time (s)", fontsize=14)
-    ax.set_ylabel(f"Counts per {int(bin_width*1000)} ms Bin", fontsize=16)
+    ax.set_ylabel(f"Counts per {int(bin_width*1000)} ms Bin", fontsize=16, labelpad=10, fontfamily='serif' )
+    ax.yaxis.set_label_coords(-0.06, 0.5)
     ax.set_xlim(t_start, 15)
     ax.set_ylim(bottom=0)
     ax.tick_params(axis='both', which='major', labelsize=14)
