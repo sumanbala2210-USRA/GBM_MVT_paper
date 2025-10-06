@@ -365,7 +365,7 @@ def main(config_filepath: str):
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_asc']
     elif hostname == "button":
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_but']
-    elif hostname == "sbalas-MBP.local":
+    elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov"]:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_mac']
         email_flag = False
     else:
@@ -467,7 +467,7 @@ def main(config_filepath: str):
     # Call the function
     if email_flag:
         send_email(
-            subject="Analysis Complete: Results Attached",
+            subject=f"{hostname}!!! Analysis Complete: Results Attached",
             body=email_body,
             attachment_path=final_results_csv_path
     )

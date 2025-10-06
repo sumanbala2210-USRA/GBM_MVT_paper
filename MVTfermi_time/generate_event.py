@@ -333,7 +333,7 @@ def main(config_filepath: str):
     print("Hostname:", hostname)
     #exit(1)
     email_flag = True
-    if hostname == "sbalas-MBP.local":
+    if hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov"]:
         email_flag = False
 
     #shutil.rmtree(data_path, ignore_errors=True)
@@ -363,7 +363,7 @@ def main(config_filepath: str):
     email_body = f"Fine generation is complete for {config_filepath}!"
     if email_flag:
         send_email(
-            subject="All files have been generated successfully!!",
+            subject=f"{hostname}!!! All files have been generated successfully!!",
             body=email_body
         )
 
