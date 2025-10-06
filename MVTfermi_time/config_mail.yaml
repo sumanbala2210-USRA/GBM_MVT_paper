@@ -1,0 +1,6 @@
+# config_mail.yaml
+# Configuration for email notifications
+# This file contains the email settings for sending notifications at the end of simulations.
+
+gmail_user: '2210sumaanbala@gmail.com'
+gmail_password: 'oowv xczk dkir pumh'
