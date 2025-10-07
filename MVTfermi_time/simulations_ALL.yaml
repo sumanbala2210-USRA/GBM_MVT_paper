@@ -160,8 +160,8 @@ simulation_campaigns:
 
   # This campaign will only run the gaussian and norris simulations.
   pulses_to_run:
-    - gaussian
-    # - triangular  # Example of disabling a pulse for this campaign
+    # - gaussian
+    - triangular  # Example of disabling a pulse for this campaign
     # - norris
     # - fred
     # - lognormal
