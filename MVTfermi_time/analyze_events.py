@@ -29,7 +29,7 @@ import platform
 from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml, complex_pulse_list
 
 
-from TTE_SIM_v2 import Function_MVT_analysis, print_nested_dict, check_param_consistency, flatten_dict, GBM_MVT_analysis_det, GBM_MVT_analysis_complex, Function_MVT_analysis_complex, Function_MVT_analysis_time_resolved, Function_MVT_analysis_complex_time_resolved
+from TTE_SIM_v2 import Function_MVT_analysis, print_nested_dict, check_param_consistency, flatten_dict, GBM_MVT_analysis_det, GBM_MVT_analysis_complex, Function_MVT_analysis_complex, Function_MVT_analysis_time_resolved, Function_MVT_analysis_complex_time_resolved, Function_MVT_analysis_percentiles
 
 
 
@@ -76,8 +76,17 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
     bin_widths_to_analyze_ms = analysis_settings.get('bin_widths_to_analyze_ms', [])
     detector_selections = analysis_settings.get('detector_selections')
     pulse_definitions = config['pulse_definitions']
-    time_res = config['project_settings'].get('time_resolved', False)
-
+    time_res = analysis_settings.get('time_resolved', False)
+    percentile_flag = analysis_settings.get('percentile_flag', False)
+    src_percentiles = analysis_settings.get('src_percentiles', [100])
+        # Conditionally set the list of percentiles to loop over
+    if percentile_flag:
+        # If the flag is True, get the full list from the YAML.
+        src_percentiles = analysis_settings.get('src_percentiles', [10, 50, 100])
+    else:
+        # If the flag is False, the loop will only run once for the standard 100% case.
+        src_percentiles = [100]
+    
     for campaign in config.get('simulation_campaigns', []):
         if not campaign.get('enabled', False):
             continue 
@@ -118,7 +127,7 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                 # 3. Create a task for every combination of the feature parameters.
                 for combo in itertools.product(*param_values):
                     current_variable_params = dict(zip(param_names, combo))
-                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 't_start_analysis': t_start, 't_stop_analysis': t_stop, 'time_resolved': time_res}
+                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 't_start_analysis': t_start, 't_stop_analysis': t_stop, 'time_resolved': time_res, 'percentile_flag': percentile_flag}
                     
                     # Safety checks for this workflow
                     base_dets = current_variable_params.get('trigger_set', {}).get('det')
@@ -140,8 +149,10 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                         continue
 
                     for bin_width_ms in bin_widths_to_analyze_ms:
-                        yield from _create_task(sim_type, template_dir_path, base_params, analysis_settings, bin_width_ms, haar_python_path, detector_selections)
-            
+                        for percentile in src_percentiles:
+                            params_for_this_run = {**base_params, 'src_percentile': percentile}
+                            yield from _create_task(sim_type, template_dir_path, params_for_this_run, analysis_settings, bin_width_ms, haar_python_path, detector_selections)
+
             else: # --- STANDARD MODE for all other simple pulses ---
                 base_pulse_config = pulse_definitions.get(pulse_shape, {})
                 variable_params_config = campaign['parameters'].copy()
@@ -152,7 +163,7 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
 
                 for combo in itertools.product(*param_values):
                     current_variable_params = dict(zip(param_names, combo))
-                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 'time_resolved': time_res}
+                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 'time_resolved': time_res, 'percentile_flag': percentile_flag}
                     
                     # Safety checks for this workflow
                     base_dets = current_variable_params.get('trigger_set', {}).get('det')
@@ -168,7 +179,9 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                     
                     if param_dir_path.exists():
                         for bin_width_ms in bin_widths_to_analyze_ms:
-                            yield from _create_task(sim_type, param_dir_path, base_params, analysis_settings, bin_width_ms, haar_python_path, detector_selections)
+                            for percentile in src_percentiles:
+                                params_for_this_run = {**base_params, 'src_percentile': percentile}
+                                yield from _create_task(sim_type, param_dir_path, params_for_this_run, analysis_settings, bin_width_ms, haar_python_path, detector_selections)
                     else:
                         logging.warning(f"Parameter directory not found, skipping: {param_dir_path}")
 
@@ -191,6 +204,7 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
     bin_width = task_info['bin_width_to_process_ms']
     sim_type = base_params['sim_type']
     time_res = base_params.get('time_resolved', False)
+    percentile_flag = base_params.get('percentile_flag', False)
 
     #print("Position:", )
     #exit()
@@ -339,6 +353,12 @@ def analyze_one_group(task_info: Dict, data_path: Path, results_path: Path) -> L
                     output_info={ 'file_path': output_analysis_path,
                                 'file_info': param_dir.name,
                                 'selection_str': selection_str})
+            elif percentile_flag:
+                #print("==== Percentile Flag Active in Analysis ====")
+                final_summary_list = Function_MVT_analysis_percentiles(input_info=analysis_input,
+                    output_info={ 'file_path': output_analysis_path,
+                            'file_info': param_dir.name,
+                            'selection_str': selection_str})
             else:
                 final_summary_list = Function_MVT_analysis(input_info=analysis_input,
                     output_info={ 'file_path': output_analysis_path,
@@ -365,7 +385,7 @@ def main(config_filepath: str):
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_asc']
     elif hostname == "button":
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_but']
-    elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov"]:
+    elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov", "Mac-198122197156.nsstc.nasa.gov"]:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_mac']
         email_flag = False
     else:
@@ -375,7 +395,8 @@ def main(config_filepath: str):
     results_path = Path(config['project_settings']['results_path'])
     analysis_bin = config['analysis_settings']['bin_widths_to_analyze_ms'][0]
 
-    time_res = config['project_settings'].get('time_resolved', False)
+    time_res = config['analysis_settings'].get('time_resolved', False)
+    percentile_flag = config['analysis_settings'].get('percentile_flag', False)
     if time_res:
          # Create a new, timestamped directory for this run's results
         run_results_path = results_path / f"Time_res_{e_n(analysis_bin)}_{now}"
@@ -383,6 +404,12 @@ def main(config_filepath: str):
         log_file = run_results_path / f'time_analysis_{now}.log'
         final_file_name = 'Time_res_' + RESULTS_FILE_NAME
         print("\t \t=== TIME-RESOLVED ANALYSIS MODE ACTIVE ===")
+    elif percentile_flag:
+        run_results_path = results_path / f"Percentiles_{e_n(analysis_bin)}_{now}"
+        run_results_path.mkdir(parents=True, exist_ok=True)
+        log_file = run_results_path / f'percentile_analysis_{now}.log'
+        final_file_name = 'Percentiles_' + RESULTS_FILE_NAME
+        print("\t \t=== PERCENTILE ANALYSIS MODE ACTIVE ===")
     else:
         run_results_path = results_path / f"Run_{e_n(analysis_bin)}_{now}"
         run_results_path.mkdir(parents=True, exist_ok=True)
@@ -411,8 +438,9 @@ def main(config_filepath: str):
         
         # Create a clean string of the key variable parameters
         param_parts = []
-        key_params = ['peak_amplitude', 'position', 'sigma', 'width', 'rise_time', 'decay_time', 'overall_amplitude']
+        key_params = ['peak_amplitude', 'position', 'sigma', 'width', 'rise_time', 'decay_time', 'overall_amplitude', 'src_percentile']
         for key in key_params:
+            #print("Key:", key)
             if key in bp:
                 param_parts.append(f"{key[:3]}={bp[key]}")
         

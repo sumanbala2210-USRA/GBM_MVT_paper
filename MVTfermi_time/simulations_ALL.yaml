@@ -11,7 +11,8 @@ project_settings:
   haar_python_asc: "/home/uahpxv/miniconda3/envs/mvt/bin/python" # path to the Haar Python executable
   haar_python_but: "/home/sbala/anaconda3/bin/python" # path to the Haar Python executable
   haar_python_mac: "/Users/sbala/anaconda3/bin/python" # path to the Haar Python executable
-  time_resolved: True  # Set to True to run time-resolved analysis 
+   # Set to True to run time-resolved analysis
+   #  Set to True to compute percentiles in analysis
 
 # ===================================================================
 #  2. PULSE DEFINITIONS (The "Library")
@@ -21,14 +22,14 @@ project_settings:
 pulse_definitions:
   gaussian:
     parameters:
-      sigma: [1.0] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+      sigma: [0.3] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
       #sigma: [0.05, 0.01] # [0.01, 0.05, 0.1, 0.5, 1.0]
     constants:
       center_time: 0.0
 
   triangular:
     parameters:
-      width: [0.1] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+      width: [1.0] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
       #peak_time_ratio: [0.5, .2, 0.8]
     constants:
       center_time: 0.0
@@ -36,8 +37,8 @@ pulse_definitions:
 
   norris:
     parameters:
-      rise_time: [0.01, 0.005] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
-      decay_time: [0.01] #, 0.02, 0.05, 0.1, 0.2, 0.5]
+      rise_time: [0.1] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+      decay_time: [0.2] #, 0.02, 0.05, 0.1, 0.2, 0.5]
     constants:
       start_time: 0.0
   
@@ -155,7 +156,7 @@ simulation_campaigns:
     scale_factor: 1000
     random_seed: 37
     grid_resolution: 0.00001
-    total_sim: 10
+    total_sim: 30
 
   # This campaign will only run the gaussian and norris simulations.
   pulses_to_run:
@@ -167,7 +168,7 @@ simulation_campaigns:
     # - complex_pulse  # Example of enabling a pulse for this campaign
     # - complex_pulse_long  # Example of enabling a pulse for this campaign
     # - complex_pulse_short
-    #- complex_pulse_short_2p10ms
+    # - complex_pulse_short_2p10ms
     # - complex_pulse_short_2p3ms
 
 # ===================================================================
@@ -182,6 +183,9 @@ analysis_settings:
   #detector_selections: [['n0'], ['n2', 'na'], ['all']]
   detector_selections: [['n2', 'na']]
   extra_pulse: { pulse_shape: 'gaussian', sigma: 0.003, center_time: 0.0 }
-  mvt_time_window: 0.4 
-  mvt_step_size: 0.2
+  time_resolved: False 
+  mvt_time_window: 1.5 
+  mvt_step_size: 0.25
+  percentile_flag: True
+  src_percentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200] 
   #detector_selections: [ ['all'] ]

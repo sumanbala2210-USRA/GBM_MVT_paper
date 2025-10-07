@@ -333,7 +333,7 @@ def main(config_filepath: str):
     print("Hostname:", hostname)
     #exit(1)
     email_flag = True
-    if hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov"]:
+    if hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov", "Mac-198122197156.nsstc.nasa.gov"]:
         email_flag = False
 
     #shutil.rmtree(data_path, ignore_errors=True)
