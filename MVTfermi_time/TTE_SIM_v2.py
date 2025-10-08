@@ -443,6 +443,7 @@ def create_final_plot(
     src_range: Optional[Tuple[float, float]] = None,
     src_percentile: Optional[float] = 100,
     position: Optional[int] = 0,
+    padding: Optional[int] = 10,
     src_flag: bool = False
 ):
     """
@@ -457,7 +458,7 @@ def create_final_plot(
         func_par = model_info['func_par']
         fig_name = output_info['file_path'] / f"LC_{output_info['file_info']}.png"
         if src_flag and src_range is not None:
-            fig_name = output_info['file_path'] / f"LC_{output_info['file_info']}_src_{position}_percentile_{src_percentile}.png"
+            fig_name = output_info['file_path'] / f"LC_{output_info['file_info']}_src_{position}_percentile_{src_percentile}_padding_{padding}.png"
         base_title = f" LC {output_info['file_info']}"
         t_start, t_stop = params['t_start'], params['t_stop']
         background_level_cps = params['background_level']* params.get('scale_factor', 1.0)
@@ -1158,11 +1159,16 @@ def calculate_mvt_statistics(results_df: pd.DataFrame, total_runs: int):
         position_window = int(all_positive_runs['position_window'].mean())
     except:
         position_window = DEFAULT_PARAM_VALUE
+
+    try:
+        padding = int(all_positive_runs['padding'].mean())
+    except:
+        padding = DEFAULT_PARAM_VALUE
     
     if np.isnan(position_window):
         position_window = DEFAULT_PARAM_VALUE
 
-    print("Positive MVT runs:", len(all_positive_runs), "Valid MVT runs:", len(valid_mvts), "Total runs:", total_runs, "Position window:", position_window)
+    #print("Positive MVT runs:", len(all_positive_runs), "Valid MVT runs:", len(valid_mvts), "Total runs:", total_runs, "Position window:", position_window)
     # --- Build Summary Dictionaries ---
     MVT_summary = {
         'median_mvt_ms': round(median_mvt, 4),
@@ -1175,6 +1181,7 @@ def calculate_mvt_statistics(results_df: pd.DataFrame, total_runs: int):
         'total_sim': total_runs,
         'failed_runs': len(results_df) - len(valid_mvts),
         'position_window': position_window,
+        'padding': padding,
     }
 
     # Extract SNR keys
@@ -2302,8 +2309,8 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
     scale_factor = sim_params['scale_factor']
   
 
-    t_start = sim_params['t_start']
-    t_stop = sim_params['t_stop']
+    t_start_data = sim_params['t_start']
+    t_stop_data = sim_params['t_stop']
     det = sim_params.get('det', 'nn')
     angle = sim_params.get('angle', 0)
    
@@ -2397,8 +2404,55 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
                 **snr_dict,
             }
 
-            if i == 1:
-                create_final_plot(source_events=source_events,
+
+            # Loop through analysis bin width
+            bin_width_s = bin_width_ms / 1000.0
+            #bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
+            for padding in padding_percentile:
+                # 2. Define the padding offset for this iteration.
+                #    This is the amount to shift the start/end windows.
+                padding_amount = src_duration * padding / 100.0
+
+                # 3. Define the three time intervals using the width and padding
+                # Position 0 (Start): A window of 'window_width' that STARTS 'padding_amount' BEFORE src_start
+                start_0 = src_start - padding_amount
+                stop_0 = src_start + window_width
+                
+                if start_0 < t_start_data:
+                    start_0 = t_start_data + src_duration/50  # small offset to avoid edge issues
+
+                if stop_0 > t_stop_data:
+                    stop_0 = t_stop_data - src_duration/50  # small offset to avoid edge issues
+
+                # Position 1 (Middle): A window of 'window_width' centered on the midpoint (no padding)
+                start_1 = mid_point - half_width
+                stop_1 = mid_point + half_width
+
+                if start_1 < t_start_data:
+                    start_1 = t_start_data + src_duration/50  # small offset to avoid edge issues
+
+                if stop_1 > t_stop_data:
+                    stop_1 = t_stop_data - src_duration/50  # small offset to avoid edge issues
+
+                # Position 2 (End): A window of 'window_width' that ENDS 'padding_amount' AFTER src_stop
+                stop_2 = src_stop + padding_amount
+                start_2 = src_stop - window_width
+
+                if start_2 < t_start_data:
+                    start_2 = t_start_data + src_duration/50  # small offset to avoid edge issues
+
+                if stop_2 > t_stop_data:
+                    stop_2 = t_stop_data - src_duration/50  # small offset to avoid edge issues
+
+                # 4. Construct the final lists for this padding value
+                t_start_list = [start_0, start_1, start_2]
+                t_stop_list = [stop_0, stop_1, stop_2]
+                position_list = [0, 1, 2]
+
+                for t_start, t_stop, pos in zip(t_start_list, t_stop_list, position_list):
+                    #print(f"Analyzing time interval: {round(t_start, 2)} to {round(t_stop, 2)} at position: {pos}")
+                    if i == 1:
+                        create_final_plot(source_events=source_events,
                                 background_events=background_events,
                                     model_info={
                                         'func': None,
@@ -2410,38 +2464,9 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
                                     src_range=(t_start, t_stop),
                                     src_percentile=src_percentile,
                                     position=pos,
+                                    padding=padding,
                                     src_flag=True
                                 )
-
-            # Loop through analysis bin width
-            bin_width_s = bin_width_ms / 1000.0
-            #bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
-            for padding in padding_percentile:
-                # 2. Define the padding offset for this iteration.
-                #    This is the amount to shift the start/end windows.
-                padding_amount = src_duration * padding / 100.0
-
-                # 3. Define the three time intervals using the width and padding
-                
-                # Position 0 (Start): A window of 'window_width' that STARTS 'padding_amount' BEFORE src_start
-                start_0 = src_start - padding_amount
-                stop_0 = start_0 + window_width
-
-                # Position 1 (Middle): A window of 'window_width' centered on the midpoint (no padding)
-                start_1 = mid_point - half_width
-                stop_1 = mid_point + half_width
-
-                # Position 2 (End): A window of 'window_width' that ENDS 'padding_amount' AFTER src_stop
-                stop_2 = src_stop + padding_amount
-                start_2 = stop_2 - window_width
-
-                # 4. Construct the final lists for this padding value
-                t_start_list = [start_0, start_1, start_2]
-                t_stop_list = [stop_0, stop_1, stop_2]
-                position_list = [0, 1, 2]
-
-                for t_start, t_stop, pos in zip(t_start_list, t_stop_list, position_list):
-                    #print(f"Analyzing time interval: {round(t_start, 2)} to {round(t_stop, 2)} at position: {pos}")
                     try:
                         base_params['position'] = pos
                         bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
