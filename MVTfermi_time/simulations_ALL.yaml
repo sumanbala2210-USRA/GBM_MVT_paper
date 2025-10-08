@@ -29,11 +29,11 @@ pulse_definitions:
 
   triangular:
     parameters:
-      width: [1.0] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-      #peak_time_ratio: [0.5, .2, 0.8]
+      width: [0.3] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+      peak_time_ratio: [0.5, .2, 0.8]
     constants:
       center_time: 0.0
-      peak_time_ratio: 0.5
+      #peak_time_ratio: 0.5
 
   norris:
     parameters:
@@ -160,8 +160,8 @@ simulation_campaigns:
 
   # This campaign will only run the gaussian and norris simulations.
   pulses_to_run:
-    # - gaussian
-    - triangular  # Example of disabling a pulse for this campaign
+    - gaussian
+    # - triangular  # Example of disabling
     # - norris
     # - fred
     # - lognormal
@@ -183,9 +183,10 @@ analysis_settings:
   #detector_selections: [['n0'], ['n2', 'na'], ['all']]
   detector_selections: [['n2', 'na']]
   extra_pulse: { pulse_shape: 'gaussian', sigma: 0.003, center_time: 0.0 }
-  time_resolved: False 
-  mvt_time_window: 1.5 
-  mvt_step_size: 0.25
-  percentile_flag: True
-  src_percentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200] 
+  time_resolved: True 
+  mvt_time_window: 0.1 
+  mvt_step_size: 0.1
+  percentile_flag: False
+  src_percentiles: [10, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200]
+  padding_percentile: [5, 10, 20, 30, 50, 100]
   #detector_selections: [ ['all'] ]

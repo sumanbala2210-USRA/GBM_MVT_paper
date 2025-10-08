@@ -79,13 +79,16 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
     time_res = analysis_settings.get('time_resolved', False)
     percentile_flag = analysis_settings.get('percentile_flag', False)
     src_percentiles = analysis_settings.get('src_percentiles', [100])
+    #padding_percentile = analysis_settings.get('padding_percentile', [5, 10, 15, 20, 25, 30])
         # Conditionally set the list of percentiles to loop over
     if percentile_flag:
         # If the flag is True, get the full list from the YAML.
         src_percentiles = analysis_settings.get('src_percentiles', [10, 50, 100])
+        padding_percentile = analysis_settings.get('padding_percentile', [5, 10, 15, 20, 25, 30])
     else:
         # If the flag is False, the loop will only run once for the standard 100% case.
         src_percentiles = [100]
+        padding_percentile = [10]
     
     for campaign in config.get('simulation_campaigns', []):
         if not campaign.get('enabled', False):
@@ -127,7 +130,7 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                 # 3. Create a task for every combination of the feature parameters.
                 for combo in itertools.product(*param_values):
                     current_variable_params = dict(zip(param_names, combo))
-                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 't_start_analysis': t_start, 't_stop_analysis': t_stop, 'time_resolved': time_res, 'percentile_flag': percentile_flag}
+                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 't_start_analysis': t_start, 't_stop_analysis': t_stop, 'time_resolved': time_res, 'percentile_flag': percentile_flag, 'padding_percentile': padding_percentile}
                     
                     # Safety checks for this workflow
                     base_dets = current_variable_params.get('trigger_set', {}).get('det')
@@ -163,7 +166,7 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
 
                 for combo in itertools.product(*param_values):
                     current_variable_params = dict(zip(param_names, combo))
-                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 'time_resolved': time_res, 'percentile_flag': percentile_flag}
+                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 'time_resolved': time_res, 'percentile_flag': percentile_flag, 'padding_percentile': padding_percentile}
                     
                     # Safety checks for this workflow
                     base_dets = current_variable_params.get('trigger_set', {}).get('det')
@@ -379,13 +382,15 @@ def main(config_filepath: str):
     
     hostname = platform.node()
     print("Hostname:", hostname)
+    #print(hostname[:9])
+    #exit(1)
     #exit(1)
     email_flag = True
-    if hostname == "uahpxv":
+    if hostname[:9] == "asaxlogin":
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_asc']
     elif hostname == "button":
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_but']
-    elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov", "Mac-198122197156.nsstc.nasa.gov"]:
+    elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov", "Mac-198122197156.nsstc.nasa.gov", 'Mac.nsstc.nasa.gov']:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_mac']
         email_flag = False
     else:

@@ -440,6 +440,9 @@ def create_final_plot(
     background_events: np.ndarray,
     model_info: Dict,
     output_info: Dict,
+    src_range: Optional[Tuple[float, float]] = None,
+    src_percentile: Optional[float] = 100,
+    position: Optional[int] = 0,
     src_flag: bool = False
 ):
     """
@@ -453,6 +456,8 @@ def create_final_plot(
         func_to_use = model_info['func']
         func_par = model_info['func_par']
         fig_name = output_info['file_path'] / f"LC_{output_info['file_info']}.png"
+        if src_flag and src_range is not None:
+            fig_name = output_info['file_path'] / f"LC_{output_info['file_info']}_src_{position}_percentile_{src_percentile}.png"
         base_title = f" LC {output_info['file_info']}"
         t_start, t_stop = params['t_start'], params['t_stop']
         background_level_cps = params['background_level']* params.get('scale_factor', 1.0)
@@ -520,6 +525,8 @@ def create_final_plot(
         ax.vlines([t_start, t_stop], ymin=ymin, ymax=ymax, color='red', linestyle=':', lw=1.5)
         if src_flag:
             ax.vlines([src_start, src_stop], ymin=ymin, ymax=ymax, color='blue', linestyle='--', lw=1.5, label='True Source Interval')
+            if src_range is not None:
+                ax.vlines([src_range[0], src_range[1]], ymin=ymin, ymax=ymax, color='purple', linestyle='-.', lw=1.5, label='Percentile Source Interval')
         ax.text(0.5, 0.02, f"Src Intervals: [{round(src_start, 2)}, {round(src_stop, 2)}] s" if src_flag else "",
             transform=ax.transAxes,
             fontsize=10, color='red',
@@ -1114,6 +1121,237 @@ def create_final_GBM_plot_with_MVT(
 
 
 
+
+
+
+
+
+
+def calculate_mvt_statistics(results_df: pd.DataFrame, total_runs: int):
+    """
+    Calculates MVT and SNR statistics for a given set of simulation results.
+    
+    Args:
+        results_df (pd.DataFrame): DataFrame containing the results for ONE group.
+        total_runs (int): The total number of simulations for this group.
+        
+    Returns:
+        tuple: A tuple containing the MVT summary dictionary and the SNR keys dictionary.
+    """
+    valid_mvts = results_df[results_df['mvt_err_ms'] > 0]
+    all_positive_runs = results_df[(results_df['mvt_ms'] > 0) & (results_df['mvt_ms'] < 1e5)]
+
+    # Calculate stats for all positive runs
+    try:
+        all_p16, all_median_mvt, all_p84 = np.percentile(all_positive_runs['mvt_ms'], [16, 50, 84])
+    except IndexError:
+        all_p16, all_median_mvt, all_p84 = (-100, -100, -100)
+
+    # Calculate stats for valid runs (err > 0)
+    if len(valid_mvts) >= 2:
+        p16, median_mvt, p84 = np.percentile(valid_mvts['mvt_ms'], [16, 50, 84])
+    else:
+        p16, median_mvt, p84 = (-100, -100, -100)
+
+    
+    try:
+        position_window = int(all_positive_runs['position_window'].mean())
+    except:
+        position_window = DEFAULT_PARAM_VALUE
+    
+    if np.isnan(position_window):
+        position_window = DEFAULT_PARAM_VALUE
+
+    print("Positive MVT runs:", len(all_positive_runs), "Valid MVT runs:", len(valid_mvts), "Total runs:", total_runs, "Position window:", position_window)
+    # --- Build Summary Dictionaries ---
+    MVT_summary = {
+        'median_mvt_ms': round(median_mvt, 4),
+        'mvt_err_lower_ms': round(median_mvt - p16, 4),
+        'mvt_err_upper_ms': round(p84 - median_mvt, 4),
+        'all_median_mvt_ms': round(all_median_mvt, 4),
+        'all_mvt_err_lower_ms': round(all_median_mvt - all_p16, 4),
+        'all_mvt_err_upper_ms': round(all_p84 - all_median_mvt, 4),
+        'successful_runs': len(valid_mvts),
+        'total_sim': total_runs,
+        'failed_runs': len(results_df) - len(valid_mvts),
+        'position_window': position_window,
+    }
+
+    # Extract SNR keys
+    snr_keys = {}
+    data_source = valid_mvts if not valid_mvts.empty else all_positive_runs
+    for col in data_source.columns:
+        if col.startswith(('S_flu', 'S1', 'bkgd_counts', 'src_counts', 'back_avg_cps')):
+             snr_keys[col] = round(data_source[col].mean(), 2)
+
+    return MVT_summary, snr_keys
+
+
+
+
+def plot_mvt_distribution(
+    results_df: pd.DataFrame, 
+    mvt_stats: Dict[str, Any], 
+    output_info: Dict[str, Any], 
+    bin_width_ms: float, 
+    group_keys: Dict[str, Any]
+):
+    """
+    Creates and saves a plot of the MVT distribution for a single group of simulations.
+
+    Args:
+        results_df (pd.DataFrame): The raw data for the group.
+        mvt_stats (dict): The pre-calculated statistics from calculate_mvt_statistics.
+        output_info (dict): Contains path and naming information.
+        bin_width_ms (float): The analysis bin width.
+        group_keys (dict): A dict with keys like {'padding': 10, 'position': 0} for file naming.
+    """
+    # --- 1. Extract Statistics and Metadata ---
+    # Safely get all required values from the stats dictionary using .get()
+    median_mvt = mvt_stats.get('median_mvt_ms', -100)
+    p16 = median_mvt - mvt_stats.get('mvt_err_lower_ms', 0)
+    p84 = median_mvt + mvt_stats.get('mvt_err_upper_ms', 0)
+    
+    all_median_mvt = mvt_stats.get('all_median_mvt_ms', -100)
+    all_p16 = all_median_mvt - mvt_stats.get('all_mvt_err_lower_ms', 0)
+    all_p84 = all_median_mvt + mvt_stats.get('all_mvt_err_upper_ms', 0)
+
+    total_runs = mvt_stats.get('total_sim', len(results_df))
+
+    # --- 2. Filter Data for Plotting ---
+    valid_mvts = results_df[results_df['mvt_err_ms'] > 0]
+    all_positive_runs = results_df[(results_df['mvt_ms'] > 0) & (results_df['mvt_ms'] < 1e5)]
+
+    # Determine if we have enough data to plot each component
+    plot_all_dist = not all_positive_runs.empty
+    plot_valid_dist = len(valid_mvts) >= 2
+
+    if not plot_all_dist and not plot_valid_dist:
+        logging.warning(f"No valid data to plot for group: {group_keys}")
+        return
+
+    # --- 3. Create the Plot ---
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot the background distribution of ALL runs with MVT > 0
+    if plot_all_dist:
+        ax.hist(all_positive_runs['mvt_ms'], bins=30, density=True, 
+                label=f'All Runs w/ MVT > 0 ({len(all_positive_runs)}/{total_runs})',
+                color='gray', alpha=0.5, histtype='stepfilled', zorder=1)
+        ax.axvline(all_median_mvt, color='k', linestyle='-', lw=1.0, label=f"Median = {all_median_mvt:.3f} ms")
+        ax.axvspan(all_p16, all_p84, color='gray', alpha=0.1, label=f"68% C.I. [{all_p16:.3f}, {all_p84:.3f}]")
+
+    # Plot the main distribution of VALID runs (error > 0)
+    if plot_valid_dist:
+        ax.hist(valid_mvts['mvt_ms'], bins=30, density=True, 
+                label=f'Valid Runs w/ Err > 0 ({len(valid_mvts)}/{total_runs})',
+                color='steelblue', histtype='stepfilled', edgecolor='black', zorder=2) 
+        ax.axvline(median_mvt, color='firebrick', linestyle='-', lw=2.5, label=f"Median = {median_mvt:.3f} ms")
+        ax.axvspan(p16, p84, color='darkorange', alpha=0.1, hatch='///', label=f"68% C.I. [{p16:.3f}, {p84:.3f}]")
+        ax.axvline(p16, color='orange', linestyle='--', lw=1)
+        ax.axvline(p84, color='orange', linestyle='--', lw=1)
+        
+        # --- 4. Set Plot Limits Dynamically ---
+        ci_width = p84 - p16
+        if ci_width > 0:
+            data_min = max(0, p16 - 3 * ci_width)
+            data_max = p84 + 10 * ci_width
+            
+            auto_min, auto_max = ax.get_xlim()
+            # Prevent extreme outliers from ruining the plot scale
+            final_max = min(auto_max, data_max, np.percentile(all_positive_runs['mvt_ms'], 99.5))
+            ax.set_xlim(data_min, final_max)
+
+    # --- 5. Final Formatting and Saving ---
+    padding = group_keys.get('padding', 'na')
+    position = group_keys.get('position', 'na')
+    name = output_info.get('file_info', output_info.get('trigger_number'))
+    selection_str = output_info['selection_str']
+    
+    ax.set_title(f"MVT: {name} {selection_str} | Padding: {padding}%, Position: {position}\nBin Width: {bin_width_ms} ms")
+    ax.set_xlabel("Minimum Variability Timescale (ms)")
+    ax.set_ylabel("Probability Density")
+    ax.set_ylim(bottom=0)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    
+    output_path = output_info['file_path']
+    filename = f"MVT_dis_{name}_{selection_str}_pad{padding}_pos{position}_{round(bin_width_ms, 2)}ms.png"
+    
+    try:
+        plt.savefig(output_path / filename, dpi=300)
+    except Exception as e:
+        logging.error(f"Failed to save plot {filename}: {e}")
+    finally:
+        plt.close(fig)
+
+
+
+
+
+
+
+
+
+
+
+def analysis_mvt_results_to_dataframe_percentile(all_results, input_info, output_info, bin_width_ms, realizations_per_group):
+    
+    results_df = pd.DataFrame(all_results)
+    grouped = results_df.groupby(['padding', 'position_window'])
+    
+    final_summary_list = []
+    output_path = output_info['file_path']
+    try:
+        name = output_info['file_info']
+    except:
+        name = output_info['trigger_number']
+    
+    selection_str = output_info['selection_str']
+
+    for (padding_val, position_val), group_df in grouped:
+        #print(f"Analyzing group: Padding={padding_val}, Position_window={position_val} with {len(group_df)} runs")
+        
+        # 1. Calculate the statistics for the current group
+        group_df.to_csv(output_path / f"Detailed_{name}_{selection_str}s_padding{padding_val}_pos{position_val}_{bin_width_ms}ms.csv", index=False)
+        mvt_summary, snr_keys = calculate_mvt_statistics(
+            results_df=group_df,
+            total_runs=realizations_per_group
+        )
+        
+        # 2. Create the plot for the current group
+        plot_mvt_distribution(
+            results_df=group_df,
+            mvt_stats=mvt_summary,
+            output_info=output_info,
+            bin_width_ms=bin_width_ms,
+            group_keys={'padding': padding_val, 'position_window': position_val}
+        )
+        mvt_ms = mvt_summary['median_mvt_ms']
+        try:
+            if mvt_ms > 0:
+                snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
+                                    output_info=output_info,
+                                    mvt_ms=mvt_ms)
+            else:
+                snr_MVT = DEFAULT_PARAM_VALUE
+                snr_mvt_position = DEFAULT_PARAM_VALUE
+        except Exception as e:
+            logging.error(f"Error computing SNR at MVT timescale: {e}")
+            snr_MVT = DEFAULT_PARAM_VALUE
+            snr_mvt_position = DEFAULT_PARAM_VALUE
+
+        final_result = create_final_result_dict_time_resolved(input_info,
+                                mvt_summary,
+                                snr_keys,
+                                snr_MVT=snr_MVT,
+                                snr_mvt_position=snr_mvt_position)
+        final_summary_list.append(final_result)
+        
+    return final_summary_list
+
+
+
 def analysis_mvt_results_to_dataframe(
     mvt_results: List[List[Dict]],
     output_info: Dict[str, any],
@@ -1232,7 +1470,12 @@ def analysis_mvt_results_to_dataframe(
         fig.tight_layout()
         plt.savefig(output_path / f"MVT_dis_{name}_{selection_str}s_{round(bin_width_ms, 2)}ms.png", dpi=300)
     plt.close(fig)
- 
+
+    try:
+        padding = round(valid_mvts['padding'].mean(), 2)
+    except Exception as e:
+        #logging.error(f"Error calculating padding for {name} at bin width {bin_width_ms}ms: {e}")
+        padding = DEFAULT_PARAM_VALUE
 
     MVT_summary = {
         'median_mvt_ms': round(median_mvt, 4),
@@ -1244,6 +1487,7 @@ def analysis_mvt_results_to_dataframe(
         'successful_runs': len(valid_mvts),
         'total_sim': total_runs,
         'failed_runs': len(detailed_df) - len(valid_mvts),
+        'padding': padding
     }
 
     snr_keys = {}
@@ -1292,7 +1536,7 @@ def create_final_result_dict(input_info: Dict,
         # Core Parameters
         'sim_type', 'pulse_shape', 'bin_width_ms', 
         'peak_amplitude', 'peak_amp_relative', 'overall_amplitude',
-        'position', 'angle', 'trigger', 'background_level',
+        'position', 'padding', 'angle', 'trigger', 'background_level',
         'sim_det', 'base_det', 'analysis_det', 'num_analysis_det', 
         # Run Summary
         'total_sim', 'successful_runs', 'failed_runs',
@@ -1383,7 +1627,7 @@ def create_final_result_dict_time_resolved(input_info: Dict,
         # Core Parameters
         'sim_type', 'pulse_shape', 'bin_width_ms', 
         'peak_amplitude', 'peak_amp_relative', 'overall_amplitude',
-        'position', 'time_resolved', 'center_time_s', 'start_time_s', 'end_time_s', 'src_percentile', 
+        'position', 'position_window', 'padding', 'time_resolved', 'center_time_s', 'start_time_s', 'end_time_s', 'src_percentile', 
         # Run Summary
         'total_sim', 'successful_runs', 'failed_runs',
         # MVT Stats
@@ -1847,8 +2091,6 @@ def compute_snr_for_mvt_GBM(input_info: Dict,
         else:
             mean_snr_mvt = DEFAULT_PARAM_VALUE 
 
-
-
     return mean_snr_mvt, DEFAULT_PARAM_VALUE
 
 def Function_MVT_analysis(input_info: Dict,
@@ -2071,6 +2313,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
     bin_width_ms = input_info['bin_width_ms']
 
     src_percentile = base_params.get('src_percentile', 100)
+    padding_percentile = base_params.get('padding_percentile', [10])
     #print("Using src_percentile:", src_percentile)
 
 
@@ -2102,15 +2345,15 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
     src_start, src_stop = calculate_src_interval(sim_params)
     mid_point = (src_start + src_stop) / 2
     src_duration = src_stop - src_start
+    window_width = src_duration * src_percentile / 100.0
+    half_width = window_width / 2.0
     #print("Source interval:", src_start, src_stop, "Duration:", src_duration)
     #print("Mid-point of source interval:", mid_point)
 
     #percentiles_position = [src_start - src_duration * 0.1, mid_point, src_stop + src_duration * 0.1]
-    t_start = [src_start - src_duration * 0.1, mid_point - src_duration * src_percentile/200 , src_stop - src_duration * src_percentile/100]
-    t_stop = [src_start + src_duration * src_percentile/100, mid_point + src_duration * src_percentile/200 , src_stop + src_duration * 0.1]
     #t_start = [src_start - src_duration * 0.1, mid_point - src_duration * src_percentile/200 ]
     #t_stop = [src_start + src_duration * src_percentile/100, mid_point + src_duration * src_percentile/200 ]
-    position = [0,1,2]  # position to compute SNR at (0: start, 1: mid, 2: end)
+    position_list = [0,1,2]  # position to compute SNR at (0: start, 1: mid, 2: end)
 
     
     final_summary_list = []
@@ -2118,83 +2361,117 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
 
     duration = sim_params['t_stop'] - sim_params['t_start']
 
-    for t_start, t_stop, pos in zip(t_start, t_stop, position):
-        #print(f"Analyzing time interval: {round(t_start, 2)} to {round(t_stop, 2)} at position: {pos}")
-        base_params['position'] = pos
-        iteration_results = []
-        for i, source_events in enumerate(source_event_realizations):
+
+    iteration_results = []
+    for i, source_events in enumerate(source_event_realizations):
+        try:
+            background_events = background_event_realizations[i]
+            total_events = np.sort(np.concatenate([source_events, background_events]))
+            iteration_seed = sim_params['random_seed'] + i
+
+            total_src_counts = len(source_events)
+            total_bkgd_counts = len(background_events)
+
+            background_level_cps = total_bkgd_counts / duration
+            background_counts = background_level_cps * src_duration
             try:
-                background_events = background_event_realizations[i]
-                total_events = np.sort(np.concatenate([source_events, background_events]))
-                iteration_seed = sim_params['random_seed'] + i
+                snr_fluence = total_src_counts / np.sqrt(background_counts)
+            except ZeroDivisionError:
+                snr_fluence = 0
+            #snr_fluence = total_src_counts / sigma_bkgd_counts
+            # Calculate per-realization metrics that are independent of bin width
+            total_counts_fine, _ = np.histogram(total_events, bins=int(duration / 0.001))
+            snr_dict = _calculate_multi_timescale_snr(
+                total_counts=total_counts_fine, sim_bin_width=0.001,
+                back_avg_cps=background_level_cps,
+                search_timescales=snr_timescales
+            )
 
-                total_src_counts = len(source_events)
-                total_bkgd_counts = len(background_events)
+            base_iter_detail = {
+                'iteration': i + 1,
+                'random_seed': iteration_seed,
+                'back_avg_cps': round(background_level_cps, 2),
+                'bkgd_counts': int(background_counts),
+                'src_counts': total_src_counts,
+                'S_flu': round(snr_fluence, 2),
+                **snr_dict,
+            }
 
-                background_level_cps = total_bkgd_counts / duration
-                background_counts = background_level_cps * src_duration
-                try:
-                    snr_fluence = total_src_counts / np.sqrt(background_counts)
-                except ZeroDivisionError:
-                    snr_fluence = 0
-                #snr_fluence = total_src_counts / sigma_bkgd_counts
-                # Calculate per-realization metrics that are independent of bin width
-                total_counts_fine, _ = np.histogram(total_events, bins=int(duration / 0.001))
-                snr_dict = _calculate_multi_timescale_snr(
-                    total_counts=total_counts_fine, sim_bin_width=0.001,
-                    back_avg_cps=background_level_cps,
-                    search_timescales=snr_timescales
-                )
+            if i == 1:
+                create_final_plot(source_events=source_events,
+                                background_events=background_events,
+                                    model_info={
+                                        'func': None,
+                                        'func_par': None,
+                                        'base_params': sim_params,
+                                        'snr_analysis': snr_timescales
+                                    },
+                                    output_info= output_info,
+                                    src_range=(t_start, t_stop),
+                                    src_percentile=src_percentile,
+                                    position=pos,
+                                    src_flag=True
+                                )
 
-                base_iter_detail = {
-                    'iteration': i + 1,
-                    'random_seed': iteration_seed,
-                    'back_avg_cps': round(background_level_cps, 2),
-                    'bkgd_counts': int(background_counts),
-                    'src_counts': total_src_counts,
-                    'S_flu': round(snr_fluence, 2),
-                    **snr_dict,
-                }
+            # Loop through analysis bin width
+            bin_width_s = bin_width_ms / 1000.0
+            #bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
+            for padding in padding_percentile:
+                # 2. Define the padding offset for this iteration.
+                #    This is the amount to shift the start/end windows.
+                padding_amount = src_duration * padding / 100.0
 
-                if i == 1:
-                    create_final_plot(source_events=source_events,
-                                    background_events=background_events,
-                                        model_info={
-                                            'func': None,
-                                            'func_par': None,
-                                            'base_params': sim_params,
-                                            'snr_analysis': snr_timescales
-                                        },
-                                        output_info= output_info
+                # 3. Define the three time intervals using the width and padding
+                
+                # Position 0 (Start): A window of 'window_width' that STARTS 'padding_amount' BEFORE src_start
+                start_0 = src_start - padding_amount
+                stop_0 = start_0 + window_width
+
+                # Position 1 (Middle): A window of 'window_width' centered on the midpoint (no padding)
+                start_1 = mid_point - half_width
+                stop_1 = mid_point + half_width
+
+                # Position 2 (End): A window of 'window_width' that ENDS 'padding_amount' AFTER src_stop
+                stop_2 = src_stop + padding_amount
+                start_2 = stop_2 - window_width
+
+                # 4. Construct the final lists for this padding value
+                t_start_list = [start_0, start_1, start_2]
+                t_stop_list = [stop_0, stop_1, stop_2]
+                position_list = [0, 1, 2]
+
+                for t_start, t_stop, pos in zip(t_start_list, t_stop_list, position_list):
+                    #print(f"Analyzing time interval: {round(t_start, 2)} to {round(t_stop, 2)} at position: {pos}")
+                    try:
+                        base_params['position'] = pos
+                        bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
+                        total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
+                        counts, _ = np.histogram(total_events_window, bins=bins)
+
+                        mvt_res = run_mvt_in_subprocess(
+                                        counts=counts,
+                                        bin_width_s=bin_width_s,
+                                        haar_python_path=haar_python_path
                                     )
-
-                # Loop through analysis bin width
-                bin_width_s = bin_width_ms / 1000.0
-                bins = np.arange(sim_params['t_start'], sim_params['t_stop'] + bin_width_s, bin_width_s)
-                bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
-                total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
-                counts, _ = np.histogram(total_events_window, bins=bins)
-
-                mvt_res = run_mvt_in_subprocess(
-                                counts=counts,
-                                bin_width_s=bin_width_s,
-                                haar_python_path=haar_python_path
-                            )
-                plt.close('all')
-                mvt_val = mvt_res['mvt_ms']
-                mvt_err = mvt_res['mvt_err_ms']
+                        plt.close('all')
+                        mvt_val = mvt_res['mvt_ms']
+                        mvt_err = mvt_res['mvt_err_ms']
+                    except Exception as e:
+                        logging.warning(f"Failed MVT calculation for realization {i} in interval {round(t_start, 2)} to {round(t_stop, 2)}. Error: {e}")
+                        mvt_val = DEFAULT_PARAM_VALUE
+                        mvt_err = DEFAULT_PARAM_VALUE
 
 
-                iter_detail = {**base_iter_detail,
-                                'analysis_bin_width_ms': bin_width_ms,
-                                'mvt_ms': round(mvt_val, 4),
-                                'mvt_err_ms': round(mvt_err, 4),
-                                **base_params}
-                iteration_results.append(iter_detail)
+                    iter_detail = {**base_iter_detail,
+                                    'analysis_bin_width_ms': bin_width_ms,
+                                    'mvt_ms': round(mvt_val, 4),
+                                    'mvt_err_ms': round(mvt_err, 4),
+                                    **base_params, 'padding': padding, 'position_window': pos}
+                    iteration_results.append(iter_detail)
 
-            except Exception as e:
-                logging.warning(f"Failed analysis on realization {i} in {src_event_files[0].name}. Error: {e}")
-                iteration_results.append({'iteration': i + 1,
+        except Exception as e:
+            logging.warning(f"Failed analysis on realization {i} in {src_event_files[0].name}. Error: {e}")
+            iteration_results.append({'iteration': i + 1,
                                                 'random_seed': sim_params['random_seed'] + i,
                                                 'analysis_bin_width_ms': bin_width_ms,
                                                 'mvt_ms': DEFAULT_PARAM_VALUE,
@@ -2204,35 +2481,18 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
                                                 'src_counts': DEFAULT_PARAM_VALUE,
                                                 'S_flu': DEFAULT_PARAM_VALUE,
                                                 **base_params,
-                                                **snr_dict})
-    
-        MVT_summary, snr_keys = analysis_mvt_results_to_dataframe(
-            mvt_results=iteration_results,
-            output_info=output_info,
-            bin_width_ms=bin_width_ms,
-            total_runs=NN
-        )
+                                                'padding': padding,
+                                                'position_window': pos
+                                            })
 
-        mvt_ms = MVT_summary['median_mvt_ms']
-        try:
-            if mvt_ms > 0:
-                snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
-                                    output_info=output_info,
-                                    mvt_ms=mvt_ms)
-            else:
-                snr_MVT = DEFAULT_PARAM_VALUE
-                snr_mvt_position = DEFAULT_PARAM_VALUE
-        except Exception as e:
-            logging.error(f"Error computing SNR at MVT timescale: {e}")
-            snr_MVT = DEFAULT_PARAM_VALUE
-            snr_mvt_position = DEFAULT_PARAM_VALUE
+    final_summary_list = analysis_mvt_results_to_dataframe_percentile(
+        iteration_results,
+        input_info=input_info,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        realizations_per_group=NN
+    )
 
-        final_result = create_final_result_dict_time_resolved(input_info,
-                                MVT_summary,
-                                snr_keys,
-                                snr_MVT=snr_MVT,
-                                snr_mvt_position=snr_mvt_position)
-        final_summary_list.append(final_result)
     return final_summary_list
 
 
