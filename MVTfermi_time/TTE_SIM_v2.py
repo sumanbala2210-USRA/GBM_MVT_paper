@@ -307,7 +307,7 @@ def calculate_adaptive_simulation_params_old(pulse_shape: str, params: Dict) -> 
         # A simple approximation for the peak time
         peak_time = np.sqrt(t_rise * t_decay)
         # End the simulation after the pulse has decayed significantly (~10x decay time)
-        t_start = start - 2 * t_rise 
+        t_start = start - 3 * t_rise 
         t_stop = start + 6 * t_decay 
 
     elif pulse_shape == 'triangular':
@@ -2598,16 +2598,16 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
 
 
 
-def get_window_width(pulse_shape: str, anchor_point: int, src_percentile: float, params: Dict) -> float:
+def get_window_width(pulse_shape: str, anchor_point: int, src_percentile: float, params: Dict, duration: float) -> float:
     """
     Computes the analysis window width based on src_percentile, pulse shape, and anchor point.
     
     anchor_point: 0 -> start, 1 -> peak/mid, 2 -> stop
     """
     # Extract common parameters
-    t_start = params.get('t_start', 0)
-    t_stop = params.get('t_stop', 1)
-    duration = t_stop - t_start
+    #t_start = params.get('t_start', 0)
+    #t_stop = params.get('t_stop', 1)
+    #duration = t_stop - t_start
     
     # Determine shortest timescale depending on pulse shape and anchor
     if pulse_shape == 'gaussian':
@@ -2741,7 +2741,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
             # 1. Compute midpoint once
             # -----------------------------
             pos = 1
-            window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params)
+            window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
             mid_start = max(mid_point - window_width / 2, t_start_data + duration / 50)
             mid_stop  = min(mid_point + window_width / 2, t_stop_data - duration / 50)
 
@@ -2794,7 +2794,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
             # -----------------------------
             for pos in [0, 2]:
                 for padding in padding_percentile:
-                    window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params)
+                    window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
                     if pos == 0:
                         start = src_start - padding * duration / 100.0
                         stop  = src_start + window_width
