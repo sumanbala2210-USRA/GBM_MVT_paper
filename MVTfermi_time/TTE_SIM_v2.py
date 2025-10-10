@@ -7,7 +7,7 @@ Old: This script simulates light curves using Gaussian and triangular profiles.
 
 """
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 import glob
@@ -18,9 +18,8 @@ import gdt.core
 import yaml  # Import the JSON library for parameter logging
 import warnings
 from astropy.io.fits.verify import VerifyWarning
-from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Callable, Tuple
+from typing import Dict, Any, List, Optional, Callable, Tuple, Union
 import logging
 import pandas as pd
 
@@ -376,7 +375,7 @@ def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict
         # A simple approximation for the peak time
         peak_time = np.sqrt(t_rise * t_decay)
         # End the simulation after the pulse has decayed significantly (~10x decay time)
-        t_start = start - 2 * max(t_rise, t_decay)
+        t_start = start - 2 * max(t_rise, t_decay, peak_time)
         t_stop = peak_time + 12 * t_decay 
 
     elif pulse_shape == 'triangular':
@@ -2598,52 +2597,94 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
 
 
 
-def get_window_width(pulse_shape: str, anchor_point: int, src_percentile: float, params: Dict, duration: float) -> float:
+
+
+def get_window_width(
+    pulse_shape: str,
+    anchor_point: int,
+    src_percentile: float,
+    params: Dict,
+    duration: float
+) -> Union[float, Tuple[float, float]]:
     """
-    Computes the analysis window width based on src_percentile, pulse shape, and anchor point.
+    Compute window width(s) based on src_percentile, pulse shape, and anchor point.
     
-    anchor_point: 0 -> start, 1 -> peak/mid, 2 -> stop
+    Returns:
+        - float for anchor_point = 0 (start) or 2 (end)
+        - (left_window, right_window) tuple for anchor_point = 1 (mid/peak)
     """
-    # Extract common parameters
-    #t_start = params.get('t_start', 0)
-    #t_stop = params.get('t_stop', 1)
-    #duration = t_stop - t_start
-    
-    # Determine shortest timescale depending on pulse shape and anchor
+    # ---------------------------------------------------------
+    # 1. Shortest timescale depending on shape and anchor
+    # ---------------------------------------------------------
     if pulse_shape == 'gaussian':
         sigma = params['sigma']
         shortest_scale = sigma
+
     elif pulse_shape == 'triangular':
         width = params['width']
         peak_ratio = params['peak_time_ratio']
         if anchor_point == 0:
-            shortest_scale = width * peak_ratio      # rise segment
+            shortest_scale = width * peak_ratio
         elif anchor_point == 1:
-            shortest_scale = width * min(peak_ratio, 1 - peak_ratio)  # half of shorter side
+            shortest_scale = width * min(peak_ratio, 1 - peak_ratio)
         else:
-            shortest_scale = width * (1 - peak_ratio)  # fall segment
+            shortest_scale = width * (1 - peak_ratio)
+
     elif pulse_shape in ['norris', 'fred']:
         t_rise = params['rise_time']
         t_decay = params['decay_time']
+        peak = np.sqrt(t_rise * t_decay)
         if anchor_point == 0:
-            shortest_scale = t_rise
+            shortest_scale = peak
         elif anchor_point == 1:
-            shortest_scale = min(t_rise, t_decay)
+            shortest_scale = min(peak, t_decay)
         else:
-            shortest_scale = t_decay
+            shortest_scale = 6 * t_decay
+
     else:
-        # Fallback to duration
         shortest_scale = duration
-    
-    # Map src_percentile to timescale
-    if src_percentile <= 50:
-        window_width = shortest_scale * (src_percentile / 50.0)
-    elif src_percentile <= 100:
-        window_width = duration * (src_percentile / 100.0)
+
+    # ---------------------------------------------------------
+    # 2. Piecewise mapping
+    # ---------------------------------------------------------
+    if anchor_point in [0, 2]:
+        # -------- START ANCHOR --------
+        if src_percentile <= 50:
+            window = 2 * (src_percentile / 100.0) * shortest_scale
+        elif src_percentile <= 100:
+            window_s = shortest_scale
+            window = window_s + 2 * ((src_percentile - 50) / 100.0) * (duration - shortest_scale)
+        else:
+            window_s = shortest_scale
+            window_l = window_s + (duration - shortest_scale)   # equals duration
+            window = window_l + ((src_percentile - 100) / 100.0) * duration
+        return window, shortest_scale
+
+    elif anchor_point == 1:
+        # -------- MID ANCHOR (asymmetric left/right) --------
+        # Left → controlled by shortest_scale
+        if src_percentile <= 100:
+            left_window = (src_percentile / 100.0) * shortest_scale
+            right_window = (src_percentile / 100.0) * (duration - shortest_scale)
+        else:
+            # First cover full duration, then stretch both sides proportionally
+            left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration
+            right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration
+        return (left_window, right_window)
+
     else:
-        window_width = duration * (src_percentile / 100.0)  # >100% means stretching beyond duration
-    
-    return window_width
+        # -------- END ANCHOR --------
+        if src_percentile <= 50:
+            window = 2 * (src_percentile / 100.0) * (duration - shortest_scale)
+        elif src_percentile <= 100:
+            window_s = (duration - shortest_scale)
+            window = window_s + 2 * ((src_percentile - 50) / 100.0) * shortest_scale
+        else:
+            window_s = (duration - shortest_scale)
+            window_l = window_s + shortest_scale   # equals duration
+            window = window_l + ((src_percentile - 100) / 100.0) * duration
+        return window, shortest_scale
+
 
 
 def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
@@ -2741,27 +2782,35 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
             # 1. Compute midpoint once
             # -----------------------------
             pos = 1
-            window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
-            mid_start = max(mid_point - window_width / 2, t_start_data + duration / 50)
-            mid_stop  = min(mid_point + window_width / 2, t_stop_data - duration / 50)
+            win = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
+            if pos == 1:
+                padding = 0
+                left_w, right_w = win
+                t_start = mid_point - left_w
+                t_stop = mid_point + right_w
+            #if i == 0:
+                #print(f"Creating plot for realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
+            t_start = max(t_start, t_start_data + duration / 50)
+            t_stop  = min(t_stop, t_stop_data - duration / 50)
 
-            for t_start, t_stop in [(mid_start, mid_stop)]:
+            for t_start, t_stop in [(t_start, t_stop)]:
                 if i == 1:
-                        create_final_plot(source_events=source_events,
-                                background_events=background_events,
-                                    model_info={
-                                        'func': None,
-                                        'func_par': None,
-                                        'base_params': sim_params,
-                                        'snr_analysis': snr_timescales
-                                    },
-                                    output_info= output_info,
-                                    src_range=(t_start, t_stop),
-                                    src_percentile=src_percentile,
-                                    position=pos,
-                                    padding=padding,
-                                    src_flag=True
-                                )
+                    #print(f"Creating plot for realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
+                    create_final_plot(source_events=source_events,
+                            background_events=background_events,
+                                model_info={
+                                    'func': None,
+                                    'func_par': None,
+                                    'base_params': sim_params,
+                                    'snr_analysis': snr_timescales
+                                },
+                                output_info= output_info,
+                                src_range=(t_start, t_stop),
+                                src_percentile=src_percentile,
+                                position=pos,
+                                padding=padding,
+                                src_flag=True
+                            )
                 try:
                     bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
                     total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
@@ -2794,20 +2843,28 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
             # -----------------------------
             for pos in [0, 2]:
                 for padding in padding_percentile:
-                    window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
+                    window_width, shortest_scale = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
                     if pos == 0:
-                        start = src_start - padding * duration / 100.0
-                        stop  = src_start + window_width
+                        t_start = src_start - padding/100.0 * shortest_scale*2
+                        t_stop = src_start + window_width
                     else:
-                        start = src_stop - window_width
-                        stop  = src_stop + padding * duration / 100.0
+                        t_start = src_stop - window_width
+                        t_stop = src_stop + padding/100.0 * shortest_scale
 
                     # Avoid edges
-                    start = max(start, t_start_data + duration / 50)
-                    stop  = min(stop, t_stop_data - duration / 50)
+                    if t_stop <= t_start:
+                        logging.warning(f"Skipped zero/negative length window for pos={pos}, padding={padding}")
+                        continue
+                    if i==0 and pos==0:
+                        print(f"Initial realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
+                    
+                    t_start = max(t_start, t_start_data + duration / 50)
+                    t_stop  = min(t_stop, t_stop_data - duration / 50)
 
                     try:
                         if i == 1:
+                            if pos == 0:
+                                print(f"Creating plot for realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
                             create_final_plot(source_events=source_events,
                                     background_events=background_events,
                                         model_info={
@@ -2817,14 +2874,14 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
                                             'snr_analysis': snr_timescales
                                         },
                                         output_info= output_info,
-                                        src_range=(start, stop),
+                                        src_range=(t_start, t_stop),
                                         src_percentile=src_percentile,
                                         position=pos,
                                         padding=padding,
                                         src_flag=True
                                     )
-                        bins = np.arange(start, stop + bin_width_s, bin_width_s)
-                        total_events_window = total_events[(total_events >= start) & (total_events <= stop)]
+                        bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
+                        total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
                         counts, _ = np.histogram(total_events_window, bins=bins)
                         mvt_res = run_mvt_in_subprocess(
                             counts=counts,
@@ -2835,7 +2892,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
                         mvt_val = mvt_res['mvt_ms']
                         mvt_err = mvt_res['mvt_err_ms']
                     except Exception as e:
-                        logging.warning(f"Failed MVT calculation for realization {i}, interval {round(start,2)}-{round(stop,2)}: {e}")
+                        logging.warning(f"Failed MVT calculation for realization {i}, interval {round(t_start,2)}-{round(t_stop,2)}: {e}")
                         mvt_val = DEFAULT_PARAM_VALUE
                         mvt_err = DEFAULT_PARAM_VALUE
 
