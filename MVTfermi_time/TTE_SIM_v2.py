@@ -229,7 +229,7 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         t_start = params['start_time']
         # Rough peak time is a few rise times after the start
         peak_time_approx = t_start + 2 * t_rise 
-        t_stop = peak_time_approx + 7 * t_decay
+        t_stop = peak_time_approx + 6 * t_decay
         return t_start, t_stop
 
     elif pulse_shape in complex_pulse_list:
@@ -271,7 +271,7 @@ def parse_intervals_from_csv(value_from_csv: str) -> List[List[float]]:
 
 
 
-def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict:
+def calculate_adaptive_simulation_params_old(pulse_shape: str, params: Dict) -> Dict:
     """
     Calculates optimal t_start, t_stop, and grid_resolution based on pulse parameters.
     """
@@ -340,7 +340,73 @@ def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict
     return {'t_start': t_start, 't_stop': t_stop, 'grid_resolution': grid_res}
 
 
+def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict:
+    """
+    Calculates optimal t_start, t_stop, and grid_resolution based on pulse parameters.
+    """
+    t_start, t_stop, grid_res = None, None, None
+    padding = 10.0  # Seconds of padding before and after the pulse
 
+    if pulse_shape == 'gaussian':
+        sigma = params['sigma']
+        center = params['center_time']
+        grid_res = sigma / 10.0
+        # The pulse is significant within ~5-sigma of the center
+        t_start = center - 5 * sigma - padding * grid_res * 3
+        t_stop = center + 5 * sigma + padding * grid_res * 3
+        # Rule of Thumb: Grid must be ~10x finer than the narrowest feature
+
+    elif pulse_shape == 'lognormal':
+        sigma = params['sigma']
+        center = params['center_time']
+        timescale = min(center, sigma * center)
+        grid_res = timescale / 10.0
+        # Use a similar 5-sigma rule, but in log-space
+        t_start = center * np.exp(-5 * sigma - padding * grid_res * 20)
+        t_stop = center * np.exp(5 * sigma + padding * grid_res * 20)
+        # A rough characteristic timescale for lognormal
+        
+    elif pulse_shape in ['norris', 'fred']:
+        t_rise = params['rise_time']
+        t_decay = params['decay_time']
+        start = params['start_time']
+        # For FRED/Norris, the rise time is the narrowest feature
+        grid_res =  min(t_rise, t_decay) / 10.0
+        # Determine the peak time to set a reasonable end point
+        # A simple approximation for the peak time
+        peak_time = np.sqrt(t_rise * t_decay)
+        # End the simulation after the pulse has decayed significantly (~10x decay time)
+        t_start = start - 2 * max(t_rise, t_decay)
+        t_stop = peak_time + 12 * t_decay 
+
+    elif pulse_shape == 'triangular':
+        width = params['width']
+        center = params['center_time']
+        peak_ratio = params['peak_time_ratio']
+        rise_duration = width * peak_ratio
+        fall_duration = width * (1.0 - peak_ratio)
+        grid_res = min(rise_duration, fall_duration) / 10.0
+        # Start and stop are explicitly defined by the parameters
+        t_start = center - (width * peak_ratio) - padding * grid_res * 5
+        #t_stop = t_start + width + padding + (padding*2)
+        t_stop = center + width * (1.0 - peak_ratio) + padding * grid_res * 5
+        # Narrowest feature is the shorter of the rise or fall time
+
+    elif pulse_shape in complex_pulse_list:
+        t_start = params.get('t_start', 4.0) 
+        t_stop = params.get('t_stop', 5.0)
+        grid_res = params.get('grid_resolution', 0.001)
+
+    # --- Safety Net ---
+    # Ensure grid resolution is within reasonable bounds to prevent memory errors
+    # or inaccurate simulations.
+    if grid_res is not None:
+        grid_res = np.clip(grid_res, a_min=1e-7, a_max=0.001) # e.g., 1µs to 1ms
+    else:
+        # Fallback for unknown shapes
+        t_start, t_stop, grid_res = -5.0, 5.0, 0.0001
+        
+    return {'t_start': t_start, 't_stop': t_stop, 'grid_resolution': grid_res}
 
 
 
@@ -2350,7 +2416,16 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
 
 
     src_start, src_stop = calculate_src_interval(sim_params)
+
     mid_point = (src_start + src_stop) / 2
+    pulse_shape = sim_params['pulse_shape']
+
+    if pulse_shape =='norris':
+        t_rise = sim_params['t_rise']#, 0.1)
+        t_decay = sim_params['t_decay']#, 0.5)
+        mid_point = np.sqrt(t_rise * t_decay)
+
+
     src_duration = src_stop - src_start
     window_width = src_duration * src_percentile / 100.0
     half_width = window_width / 2.0
@@ -2520,6 +2595,285 @@ def Function_MVT_analysis_percentiles(input_info: Dict,
 
     return final_summary_list
 
+
+
+
+def get_window_width(pulse_shape: str, anchor_point: int, src_percentile: float, params: Dict) -> float:
+    """
+    Computes the analysis window width based on src_percentile, pulse shape, and anchor point.
+    
+    anchor_point: 0 -> start, 1 -> peak/mid, 2 -> stop
+    """
+    # Extract common parameters
+    t_start = params.get('t_start', 0)
+    t_stop = params.get('t_stop', 1)
+    duration = t_stop - t_start
+    
+    # Determine shortest timescale depending on pulse shape and anchor
+    if pulse_shape == 'gaussian':
+        sigma = params['sigma']
+        shortest_scale = sigma
+    elif pulse_shape == 'triangular':
+        width = params['width']
+        peak_ratio = params['peak_time_ratio']
+        if anchor_point == 0:
+            shortest_scale = width * peak_ratio      # rise segment
+        elif anchor_point == 1:
+            shortest_scale = width * min(peak_ratio, 1 - peak_ratio)  # half of shorter side
+        else:
+            shortest_scale = width * (1 - peak_ratio)  # fall segment
+    elif pulse_shape in ['norris', 'fred']:
+        t_rise = params['rise_time']
+        t_decay = params['decay_time']
+        if anchor_point == 0:
+            shortest_scale = t_rise
+        elif anchor_point == 1:
+            shortest_scale = min(t_rise, t_decay)
+        else:
+            shortest_scale = t_decay
+    else:
+        # Fallback to duration
+        shortest_scale = duration
+    
+    # Map src_percentile to timescale
+    if src_percentile <= 50:
+        window_width = shortest_scale * (src_percentile / 50.0)
+    elif src_percentile <= 100:
+        window_width = duration * (src_percentile / 100.0)
+    else:
+        window_width = duration * (src_percentile / 100.0)  # >100% means stretching beyond duration
+    
+    return window_width
+
+
+def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
+    sim_data_path = input_info['sim_data_path']
+    haar_python_path = input_info['haar_python_path']
+    analysis_settings = input_info['analysis_settings']
+    
+    src_event_files = sorted(sim_data_path.glob('*_src.npz'))
+    back_event_files = sorted(sim_data_path.glob('*_bkgd.npz'))
+    if not src_event_files or not back_event_files:
+        logging.error(f"No source or background event files found in {sim_data_path}")
+        return []
+    
+    sim_params_file = input_info['sim_par_file']
+    sim_params = sim_params_file if isinstance(sim_params_file, dict) else yaml.safe_load(open(sim_params_file, 'r'))
+
+    data_src = np.load(src_event_files[0], allow_pickle=True)
+    data_back = np.load(back_event_files[0], allow_pickle=True)
+    
+    t_start_data = sim_params['t_start']
+    t_stop_data = sim_params['t_stop']
+    base_params = input_info['base_params']
+    NN_analysis = base_params['num_analysis']
+    snr_timescales = analysis_settings.get('snr_timescales', [0.010, 0.016, 0.032, 0.064, 0.128])
+    bin_width_ms = input_info['bin_width_ms']
+    src_percentile = base_params.get('src_percentile', 100)
+    padding_percentile = base_params.get('padding_percentile', [10])
+
+    source_event_realizations_all = data_src['realizations']
+    background_event_realizations = data_back['realizations']
+
+    NN = len(source_event_realizations_all)
+    if NN != len(background_event_realizations):
+        logging.warning(f"Mismatch in realization counts: {NN} (source) vs {len(background_event_realizations)} (background)")
+        return []
+    if NN < NN_analysis:
+        logging.warning(f"Insufficient realizations: {NN} (source) < {NN_analysis} (required)")
+        return []
+    
+    if NN_analysis < NN:
+        source_event_realizations = source_event_realizations_all[:NN_analysis]
+        NN = NN_analysis
+    else:
+        source_event_realizations = source_event_realizations_all
+
+    src_start, src_stop = calculate_src_interval(sim_params)
+    pulse_shape = sim_params['pulse_shape']
+    
+    # Approximate peak/midpoint
+    if pulse_shape == 'norris':
+        t_rise = sim_params['rise_time']
+        t_decay = sim_params['decay_time']
+        mid_point = np.sqrt(t_rise * t_decay)
+    elif pulse_shape == 'triangular':
+        width = sim_params['width']
+        peak_ratio = sim_params['peak_time_ratio']
+        mid_point = src_start + width * peak_ratio
+    else:
+        mid_point = (src_start + src_stop) / 2
+    
+    duration = src_stop - src_start
+    bin_width_s = bin_width_ms / 1000.0
+
+    iteration_results = []
+
+    for i, source_events in enumerate(source_event_realizations):
+        try:
+            background_events = background_event_realizations[i]
+            total_events = np.sort(np.concatenate([source_events, background_events]))
+            iteration_seed = sim_params['random_seed'] + i
+            total_src_counts = len(source_events)
+            total_bkgd_counts = len(background_events)
+            background_level_cps = total_bkgd_counts / duration
+            background_counts = background_level_cps * duration
+            snr_fluence = total_src_counts / np.sqrt(background_counts) if background_counts > 0 else 0
+
+            total_counts_fine, _ = np.histogram(total_events, bins=int(duration / 0.001))
+            snr_dict = _calculate_multi_timescale_snr(
+                total_counts=total_counts_fine, sim_bin_width=0.001,
+                back_avg_cps=background_level_cps,
+                search_timescales=snr_timescales
+            )
+
+            base_iter_detail = {
+                'iteration': i + 1,
+                'random_seed': iteration_seed,
+                'back_avg_cps': round(background_level_cps, 2),
+                'bkgd_counts': int(background_counts),
+                'src_counts': total_src_counts,
+                'S_flu': round(snr_fluence, 2),
+                **snr_dict,
+            }
+
+            # -----------------------------
+            # 1. Compute midpoint once
+            # -----------------------------
+            pos = 1
+            window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params)
+            mid_start = max(mid_point - window_width / 2, t_start_data + duration / 50)
+            mid_stop  = min(mid_point + window_width / 2, t_stop_data - duration / 50)
+
+            for t_start, t_stop in [(mid_start, mid_stop)]:
+                if i == 1:
+                        create_final_plot(source_events=source_events,
+                                background_events=background_events,
+                                    model_info={
+                                        'func': None,
+                                        'func_par': None,
+                                        'base_params': sim_params,
+                                        'snr_analysis': snr_timescales
+                                    },
+                                    output_info= output_info,
+                                    src_range=(t_start, t_stop),
+                                    src_percentile=src_percentile,
+                                    position=pos,
+                                    padding=padding,
+                                    src_flag=True
+                                )
+                try:
+                    bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
+                    total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
+                    counts, _ = np.histogram(total_events_window, bins=bins)
+                    mvt_res = run_mvt_in_subprocess(
+                        counts=counts,
+                        bin_width_s=bin_width_s,
+                        haar_python_path=haar_python_path
+                    )
+                    plt.close('all')
+                    mvt_val = mvt_res['mvt_ms']
+                    mvt_err = mvt_res['mvt_err_ms']
+                except Exception as e:
+                    logging.warning(f"Failed MVT calculation (midpoint) for realization {i}: {e}")
+                    mvt_val = DEFAULT_PARAM_VALUE
+                    mvt_err = DEFAULT_PARAM_VALUE
+
+                iter_detail = {**base_iter_detail,
+                               'analysis_bin_width_ms': bin_width_ms,
+                               'mvt_ms': round(mvt_val, 4),
+                               'mvt_err_ms': round(mvt_err, 4),
+                               **base_params,
+                               'padding': 0,
+                               'position_window': pos,
+                               'src_percentile': src_percentile}
+                iteration_results.append(iter_detail)
+
+            # -----------------------------
+            # 2. Compute start (0) and end (2) windows with padding
+            # -----------------------------
+            for pos in [0, 2]:
+                for padding in padding_percentile:
+                    window_width = get_window_width(pulse_shape, pos, src_percentile, sim_params)
+                    if pos == 0:
+                        start = src_start - padding * duration / 100.0
+                        stop  = src_start + window_width
+                    else:
+                        start = src_stop - window_width
+                        stop  = src_stop + padding * duration / 100.0
+
+                    # Avoid edges
+                    start = max(start, t_start_data + duration / 50)
+                    stop  = min(stop, t_stop_data - duration / 50)
+
+                    try:
+                        if i == 1:
+                            create_final_plot(source_events=source_events,
+                                    background_events=background_events,
+                                        model_info={
+                                            'func': None,
+                                            'func_par': None,
+                                            'base_params': sim_params,
+                                            'snr_analysis': snr_timescales
+                                        },
+                                        output_info= output_info,
+                                        src_range=(start, stop),
+                                        src_percentile=src_percentile,
+                                        position=pos,
+                                        padding=padding,
+                                        src_flag=True
+                                    )
+                        bins = np.arange(start, stop + bin_width_s, bin_width_s)
+                        total_events_window = total_events[(total_events >= start) & (total_events <= stop)]
+                        counts, _ = np.histogram(total_events_window, bins=bins)
+                        mvt_res = run_mvt_in_subprocess(
+                            counts=counts,
+                            bin_width_s=bin_width_s,
+                            haar_python_path=haar_python_path
+                        )
+                        plt.close('all')
+                        mvt_val = mvt_res['mvt_ms']
+                        mvt_err = mvt_res['mvt_err_ms']
+                    except Exception as e:
+                        logging.warning(f"Failed MVT calculation for realization {i}, interval {round(start,2)}-{round(stop,2)}: {e}")
+                        mvt_val = DEFAULT_PARAM_VALUE
+                        mvt_err = DEFAULT_PARAM_VALUE
+
+                    iter_detail = {**base_iter_detail,
+                                   'analysis_bin_width_ms': bin_width_ms,
+                                   'mvt_ms': round(mvt_val, 4),
+                                   'mvt_err_ms': round(mvt_err, 4),
+                                   **base_params,
+                                   'padding': padding,
+                                   'position_window': pos,
+                                   'src_percentile': src_percentile}
+                    iteration_results.append(iter_detail)
+
+        except Exception as e:
+            logging.warning(f"Failed analysis on realization {i} in {src_event_files[0].name}: {e}")
+            iteration_results.append({'iteration': i + 1,
+                                      'random_seed': sim_params['random_seed'] + i,
+                                      'analysis_bin_width_ms': bin_width_ms,
+                                      'mvt_ms': DEFAULT_PARAM_VALUE,
+                                      'mvt_err_ms': DEFAULT_PARAM_VALUE,
+                                      'back_avg_cps': DEFAULT_PARAM_VALUE,
+                                      'bkgd_counts': DEFAULT_PARAM_VALUE,
+                                      'src_counts': DEFAULT_PARAM_VALUE,
+                                      'S_flu': DEFAULT_PARAM_VALUE,
+                                      **base_params,
+                                      'padding': 0,
+                                      'position_window': 1,
+                                      'src_percentile': src_percentile})
+
+    final_summary_list = analysis_mvt_results_to_dataframe_percentile(
+        iteration_results,
+        input_info=input_info,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        realizations_per_group=NN
+    )
+
+    return final_summary_list
 
 
 
