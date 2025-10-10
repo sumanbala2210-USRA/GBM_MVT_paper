@@ -2855,16 +2855,16 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
                     if t_stop <= t_start:
                         logging.warning(f"Skipped zero/negative length window for pos={pos}, padding={padding}")
                         continue
-                    if i==0 and pos==0:
-                        print(f"Initial realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
+                    #if i==0 and pos==0:
+                    #    print(f"Initial realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
                     
                     t_start = max(t_start, t_start_data + duration / 50)
                     t_stop  = min(t_stop, t_stop_data - duration / 50)
 
                     try:
                         if i == 1:
-                            if pos == 0:
-                                print(f"Creating plot for realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
+                            #if pos == 0:
+                                #print(f"Creating plot for realization {i}, pos={pos}, padding={padding}, interval {round(t_start,2)}-{round(t_stop,2)}")
                             create_final_plot(source_events=source_events,
                                     background_events=background_events,
                                         model_info={
