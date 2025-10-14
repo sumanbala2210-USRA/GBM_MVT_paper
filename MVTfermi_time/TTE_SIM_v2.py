@@ -3511,7 +3511,7 @@ def Function_MVT_analysis_complex_time_resolved(input_info: Dict, output_info: D
     # --- NEW: Call the final plotting function AFTER the loop ---
     if first_realization_events:
         # Define the output filename for the plot data
-        """
+        output_info['file_info'] = f"oamp_{base_params['overall_amplitude']}_amp_{base_params['peak_amplitude']}_pos_{base_params['position']}"
         plot_data_filename = output_info['file_path'] / f"plot_data_{output_info['file_info']}.npz"
         
         # Prepare the model_info dictionary with all necessary info
@@ -3532,7 +3532,7 @@ def Function_MVT_analysis_complex_time_resolved(input_info: Dict, output_info: D
         )
 
         logging.info(f"Plotting data saved to {plot_data_filename}")
-        """
+        
         create_final_plot_with_MVT(
             source_events=first_realization_events['source'],
             background_events=first_realization_events['background'],

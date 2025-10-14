@@ -95,8 +95,12 @@ if uploaded_file is not None:
             y_range = [y_min, y_max] if y_min is not None and y_max is not None else None
 
             if "Interactive" in plot_backend:
-                y_err_upper = 'mvt_err_upper' if 'mvt_err_upper' in df.columns else None
-                y_err_lower = 'mvt_err_lower' if 'mvt_err_lower' in df.columns else None
+                y_err_upper = 'mvt_err_upper' if 'mvt_err_upper' in df.columns else (
+              'mvt_err_upper_ms' if 'mvt_err_upper_ms' in df.columns else None)
+
+                y_err_lower = 'mvt_err_lower' if 'mvt_err_lower' in df.columns else (
+              'mvt_err_lower_ms' if 'mvt_err_lower_ms' in df.columns else None)
+
                 color_intensity_arg = 'success_percent' if use_intensity_color else None
 
                 fig = plot_plotly(

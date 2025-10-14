@@ -25,6 +25,7 @@ from typing import Dict, Any, List
 import matplotlib.pyplot as plt
 import sys
 import platform
+import shutil
 
 from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml, complex_pulse_list
 
@@ -421,6 +422,11 @@ def main(config_filepath: str):
         log_file = run_results_path / f'run_analysis_{now}.log'
         final_file_name = 'Normal_' + RESULTS_FILE_NAME
         print("\t \t=== STANDARD ANALYSIS MODE ACTIVE ===")
+    
+    try:
+        shutil.copy(config_filepath, run_results_path)
+    except Exception as e:
+        os.system(f"cp {config_filepath} {run_results_path}")
 
     # Create a new, timestamped directory for this run's results
     #run_results_path = results_path / f"run_{e_n(analysis_bin)}_{now}"
