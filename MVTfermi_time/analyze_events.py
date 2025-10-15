@@ -393,7 +393,7 @@ def main(config_filepath: str):
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_but']
     elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov", "Mac-198122197156.nsstc.nasa.gov", 'Mac.nsstc.nasa.gov']:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_mac']
-        email_flag = False
+        email_flag = True
     else:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_asc']
         
@@ -503,12 +503,13 @@ def main(config_filepath: str):
 
     email_body = f"Analysis complete for {config_filepath}! The summary is attached and also saved to:\n{final_results_csv_path}"
 
+    attachment_paths = [final_results_csv_path, log_file, config_filepath]
     # Call the function
     if email_flag:
         send_email(
             subject=f"{hostname}!!! Analysis Complete: Results Attached",
             body=email_body,
-            attachment_path=final_results_csv_path
+            attachment_paths=attachment_paths
     )
     
 

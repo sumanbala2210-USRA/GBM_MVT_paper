@@ -106,7 +106,7 @@ def run_mvt_in_subprocess(
             return []
 
 
-def send_email(subject='Python Script Completed', body='!!', attachment_path=None):
+def send_email(subject='Python Script Completed', body='!!', attachment_paths=None):
     """
     Sends an email to a list of recipients with an optional attachment.
 
@@ -120,24 +120,24 @@ def send_email(subject='Python Script Completed', body='!!', attachment_path=Non
     msg['Subject'] = subject
     msg['From'] = '2210sumaanbala@gmail.com'
     # Join the list of recipients into a single comma-separated string
-    recipients = ['sumanbala2210@gmail.com', 'pv0004@uah.edu']
+    recipients = ['sumanbala2210@gmail.com'] #, 'pv0004@uah.edu']
     msg['To'] = ', '.join(recipients)
     msg.set_content(body)
 
-    # --- Attach the file if a path is provided ---
-    if attachment_path and os.path.exists(attachment_path):
-        # Guess the MIME type of the file
-        ctype, encoding = mimetypes.guess_type(attachment_path)
-        if ctype is None or encoding is not None:
-            ctype = 'application/octet-stream'  # Default for unknown file types
-        
-        maintype, subtype = ctype.split('/', 1)
+    if attachment_paths:
+        for path in attachment_paths:
+            if os.path.exists(path):
+                ctype, encoding = mimetypes.guess_type(path)
+                if ctype is None or encoding is not None:
+                    ctype = 'application/octet-stream'
 
-        with open(attachment_path, 'rb') as fp:
-            msg.add_attachment(fp.read(),
-                               maintype=maintype,
-                               subtype=subtype,
-                               filename=os.path.basename(attachment_path))
+                maintype, subtype = ctype.split('/', 1)
+
+                with open(path, 'rb') as fp:
+                    msg.add_attachment(fp.read(),
+                                       maintype=maintype,
+                                       subtype=subtype,
+                                       filename=os.path.basename(path))
 
     # --- Login and send the email ---
     with open(GMAIL_FILE, 'r') as f:
