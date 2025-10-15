@@ -393,7 +393,7 @@ def main(config_filepath: str):
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_but']
     elif hostname in ["sbalas-MBP.local", "sbalas-MBP.nsstc.nasa.gov", "Mac-198122197156.nsstc.nasa.gov", 'Mac.nsstc.nasa.gov']:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_mac']
-        email_flag = True
+        email_flag = False
     else:
         config['project_settings']['haar_python_path'] = config['project_settings']['haar_python_asc']
         
