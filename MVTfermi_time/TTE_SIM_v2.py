@@ -3166,9 +3166,153 @@ def Function_MVT_analysis_time_resolved(input_info: Dict,
 
 
 
+def compute_snr_for_mvt_complex(
+    input_info: Dict[str, Any],
+    output_info: Dict[str, Any],
+    mvt_ms: float,
+    position: float
+) -> Tuple[float, float]:
+    """
+    Computes the mean Signal-to-Noise Ratio (SNR) for complex, assembled light curves.
 
+    This function is designed for simulations where a 'feature' pulse is added to a 
+    'template' light curve. It calculates two SNR metrics across multiple realizations:
+    1. The peak SNR of the combined light curve when binned at the MVT.
+    2. The local SNR at the specific time ('position') of the added feature.
 
+    Args:
+        input_info (Dict[str, Any]): 
+            Dictionary with analysis inputs, including paths and parameters.
+        output_info (Dict[str, Any]): 
+            Dictionary with output configuration.
+        mvt_ms (float): 
+            The Minimum Variability Timescale in milliseconds to use for binning.
+        position (float): 
+            The time (in seconds) where the feature pulse was added.
 
+    Returns:
+        Tuple[float, float]: 
+            A tuple containing (mean_snr_mvt_total, mean_snr_mvt_position).
+    """
+    # --- 1. Initial Checks and Parameter Extraction ---
+    if mvt_ms <= 0:
+        logging.warning("MVT is non-positive. Cannot compute SNR. Returning default.")
+        return DEFAULT_PARAM_VALUE, DEFAULT_PARAM_VALUE
+
+    base_params = input_info.get('base_params', {})
+    analysis_settings = input_info.get('analysis_settings', {})
+    sim_params = input_info.get('sim_par_file', {}) # Template's parameters
+    template_dir_path = input_info.get('sim_data_path')
+    data_path_root = template_dir_path.parents[2]
+    
+    NN_analysis = base_params.get('num_analysis')
+    bin_width_s = mvt_ms / 1000.0
+
+    # Define the analysis time window, falling back to the full simulation range
+    t_start_analysis = base_params.get('t_start_analysis', sim_params.get('t_start'))
+    t_stop_analysis = base_params.get('t_stop_analysis', sim_params.get('t_stop'))
+    duration_analysis = t_stop_analysis - t_start_analysis
+
+    # --- 2. Construct Feature Path and Load All Event Data ---
+    try:
+        # Recreate the logic to find the feature's data directory
+        extra_pulse_config = analysis_settings.get('extra_pulse', {})
+        feature_shape = extra_pulse_config.get('pulse_shape')
+        feature_amplitude = base_params.get('peak_amplitude')
+        
+        # This part assumes the _create_param_directory_name function exists
+        feature_params_for_naming = { 
+            'peak_amplitude': feature_amplitude, 
+            **{k: v for k, v in extra_pulse_config.items() if k != 'pulse_shape'} 
+        }
+        feature_dir_name = _create_param_directory_name('function', feature_shape, feature_params_for_naming)
+        feature_dir_path = data_path_root / 'function' / feature_shape / feature_dir_name
+
+        # Load the realizations from all three .npz files
+        template_src_data = np.load(list(template_dir_path.glob('*_src.npz'))[0], allow_pickle=True)
+        template_bkgd_data = np.load(list(template_dir_path.glob('*_bkgd.npz'))[0], allow_pickle=True)
+        feature_src_data = np.load(list(feature_dir_path.glob('*_src.npz'))[0], allow_pickle=True)
+        
+        template_realizations = template_src_data['realizations']
+        background_realizations = template_bkgd_data['realizations']
+        feature_realizations = feature_src_data['realizations']
+    except (FileNotFoundError, IndexError, TypeError) as e:
+        logging.error(f"Critical error loading source/background files for assembly: {e}", exc_info=True)
+        return DEFAULT_PARAM_VALUE, DEFAULT_PARAM_VALUE
+        
+    if NN_analysis is None:
+        NN_analysis = len(template_realizations)
+
+    # --- 3. Main Analysis Loop over Realizations ---
+    iteration_results_total = []
+    iteration_results_position = []
+
+    for i in range(NN_analysis):
+        try:
+            # --- 3a. Assemble the full light curve for this realization ---
+            background_events_full = background_realizations[i]
+            
+            # Filter all events to the specified analysis time window
+            template_events = template_realizations[i]
+            template_events = template_events[(template_events >= t_start_analysis) & (template_events <= t_stop_analysis)]
+            
+            background_events = background_events_full[(background_events_full >= t_start_analysis) & (background_events_full <= t_stop_analysis)]
+            
+            shifted_feature_events_all = feature_realizations[i] + position
+            shifted_feature_events = shifted_feature_events_all[(shifted_feature_events_all >= t_start_analysis) & (shifted_feature_events_all <= t_stop_analysis)]
+
+            total_events = np.sort(np.concatenate([template_events, shifted_feature_events, background_events]))
+
+            # --- 3b. Calculate background counts for the MVT bin width ---
+            background_level_cps = len(background_events) / duration_analysis
+            background_counts_per_bin = background_level_cps * bin_width_s
+            
+            if background_counts_per_bin <= 0:
+                iteration_results_total.append(DEFAULT_PARAM_VALUE)
+                iteration_results_position.append(DEFAULT_PARAM_VALUE)
+                continue
+
+            # --- 3c. Create histogram (light curve) with MVT binning ---
+            bins = np.arange(t_start_analysis, t_stop_analysis + bin_width_s, bin_width_s)
+            counts, _ = np.histogram(total_events, bins=bins)
+            
+            # --- 3d. Calculate SNR for the whole light curve (Peak SNR) ---
+            snr_total = np.max(counts) / np.sqrt(background_counts_per_bin)
+            iteration_results_total.append(snr_total)
+
+            # --- 3e. Calculate SNR at the specified feature position ---
+            snr_position = DEFAULT_PARAM_VALUE
+            if t_start_analysis <= position < t_stop_analysis:
+                # Find the bin index corresponding to the feature's position
+                bin_index = np.digitize(position, bins) - 1
+                
+                # Safety check to ensure the index is valid
+                if 0 <= bin_index < len(counts):
+                    count_at_position = counts[bin_index]
+                    snr_position = count_at_position / np.sqrt(background_counts_per_bin)
+            
+            iteration_results_position.append(snr_position)
+
+        except Exception as e:
+            logging.error(f"Error in complex SNR computation for realization {i}: {e}", exc_info=True)
+            iteration_results_total.append(DEFAULT_PARAM_VALUE)
+            iteration_results_position.append(DEFAULT_PARAM_VALUE)
+            continue
+            
+    # --- 4. Aggregate Results and Return ---
+    mean_snr_mvt_total = DEFAULT_PARAM_VALUE
+    if iteration_results_total:
+        filtered_total = [snr for snr in iteration_results_total if snr > 0]
+        if filtered_total:
+            mean_snr_mvt_total = round(np.mean(filtered_total), 2)
+
+    mean_snr_mvt_position = DEFAULT_PARAM_VALUE
+    if iteration_results_position:
+        filtered_position = [snr for snr in iteration_results_position if snr > 0]
+        if filtered_position:
+            mean_snr_mvt_position = round(np.mean(filtered_position), 2)
+            
+    return mean_snr_mvt_total, mean_snr_mvt_position
 
 
 
@@ -3324,7 +3468,7 @@ def Function_MVT_analysis_complex(input_info: Dict, output_info: Dict):
 
     mvt_ms = MVT_summary['median_mvt_ms']
     try:
-        snr_MVT, snr_mvt_position = compute_snr_for_mvt(input_info=input_info,
+        snr_MVT, snr_mvt_position = compute_snr_for_mvt_complex(input_info=input_info,
                                output_info=output_info,
                                mvt_ms=mvt_ms,
                                position=position_shift)
