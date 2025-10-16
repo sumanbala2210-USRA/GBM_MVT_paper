@@ -79,15 +79,15 @@ pulse_definitions:
   complex_pulse_short_2p10ms:
     parameters:
       # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [50] #, 10, 50] #, 10.0, 20.0, 50.0, 100.0]
+      position: [4.5, 6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
+      overall_amplitude: [1, 2, 3, 4, 5, 10, 50, 100]
     constants: {}
 
   complex_pulse_short_2p3ms:
     parameters:
       # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [1, 2, 3, 4, 5, 10, 50] #, 10.0, 20.0, 50.0, 100.0]
+      position: [4.5, 6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
+      overall_amplitude: [1, 2, 3, 4, 5, 10, 50, 100] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
 
 # ===================================================================
@@ -123,7 +123,7 @@ simulation_campaigns:
     en_lo: 8.0
     en_hi: 900.0
     gbm_data_path: None
-    total_sim: 30
+    total_sim: 300
 
 
   # List the pulse shapes from the library you want to run in this campaign.
@@ -168,8 +168,8 @@ simulation_campaigns:
     # - complex_pulse  # Example of enabling a pulse for this campaign
     # - complex_pulse_long  # Example of enabling a pulse
     - complex_pulse_short
-    # - complex_pulse_short_2p10ms
-    # - complex_pulse_short_2p3ms
+    - complex_pulse_short_2p10ms
+    - complex_pulse_short_2p3ms
 
 # ===================================================================
 #  4. ANALYSIS SETTINGS
