@@ -183,7 +183,7 @@ analysis_settings:
   #detector_selections: [['n0'], ['n2', 'na'], ['all']]
   detector_selections: [['n2', 'na']]
   extra_pulse: { pulse_shape: 'gaussian', sigma: 0.003, center_time: 0.0 }
-  time_resolved: True
+  time_resolved: False
   mvt_time_window: 0.2
   mvt_step_size: 0.2
   percentile_flag: False
