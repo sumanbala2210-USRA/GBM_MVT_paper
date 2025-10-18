@@ -845,7 +845,7 @@ def main(config_dic, config_flag = False):
     with open(MVT_CONFIG_FILE, 'r') as f:
         MVT_config = yaml.safe_load(f)
 
-    haar_python_path = MVT_config['project_settings']['haar_python_path']
+    haar_python_path = MVT_config['project_settings']['haar_python_mac']
 
     trigger_number = config_dic['trigger_number']
     en_lo = config_dic.get('en_lo', 8)
@@ -996,10 +996,11 @@ def main(config_dic, config_flag = False):
         # Reset results if the main setup fails
         MVT_time_resolved_results = []
 
-    output_info = {'trigger_number': trigger_number, 'file_path': output_path, 'selection_str': selection_str}
+    
 
 
     if time_resolved:
+        output_info = {'trigger_number': trigger_number, 'file_path': output_path, 'selection_str': selection_str}
         mvt_summary_df = analysis_mvt_time_resolved_results_to_dataframe(MVT_time_resolved_results, output_info, bin_width_ms, total_sim)
 
         lc_bw = 0.001
@@ -1015,6 +1016,7 @@ def main(config_dic, config_flag = False):
         mvt_summary_df
         )
     else:
+        output_info = {'trigger_number': trigger_number, 'file_path': output_path, 'selection_str': selection_str+'_total'}
         mvt_res = run_mvt_in_subprocess(
                 lc_total.counts,
                 bin_width_s=bin_width_s,
@@ -1043,6 +1045,17 @@ def main(config_dic, config_flag = False):
 
         mvt_all_summary_path = output_path / f"mvt_summary_bn{trigger_number}_{selection_str}_{(bin_width_ms)}ms.yaml"
         write_yaml(mvt_summary_all, mvt_all_summary_path)
+        lc_bw = 0.001
+        _, _, lc_plot, _, _ = generate_lightcurves(tte_list_path, src_interval, trange, lc_bw, energy_range_nai, combined=True, src_only=True)
+        create_final_GBM_plot_with_MVT(
+                lc_plot,
+                t_start,
+                t_stop,
+                output_info,
+                bin_width_ms,
+                0,
+                mvt_summary_df=None,
+                )
 
         #full_analysis_workflow(trigger_number, trigger_directory, bin_width=mvt_s, config_dict={'src_range': src_interval, 'back_intervals': back_intervals, 'trange_total': trange})
 
@@ -1067,7 +1080,12 @@ def main(config_dic, config_flag = False):
     config_dic['det_string'] = det_string
     config_dic['source_interval'] = src_interval
     config_dic['energy_range'] = [en_lo, en_hi]
-    config_dic['mvt_summary'] = mvt_summary_all if not time_resolved else mvt_summary_df.to_dict()
+    if not time_resolved:
+        config_dic['mvt_summary'] = mvt_summary_all 
+    else:
+        config_dic['mvt_summary'] = {col: mvt_summary_df[col].tolist() for col in mvt_summary_df.columns}
+
+
 
 
 
