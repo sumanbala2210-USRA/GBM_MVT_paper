@@ -3728,10 +3728,12 @@ def analysis_mvt_time_resolved_results_to_dataframe(
         pd.DataFrame: A DataFrame summarizing the MVT statistics for each time step.
     """
     output_path = output_info['file_path']
+    print_flag = False
     try:
         name = output_info['file_info']
     except:
         name = output_info['trigger_number']
+        print_flag = True
 
     selection_str = output_info.get('selection_str', 'default')
 
@@ -3753,7 +3755,8 @@ def analysis_mvt_time_resolved_results_to_dataframe(
     
     # Save the raw, flattened data for detailed inspection
     flat_csv_path = output_path / f"Detailed_MVT_flat_{name}_{selection_str}_{bin_width_ms}ms.csv"
-    mvt_df.to_csv(flat_csv_path, index=False)
+    #mvt_df.to_csv(flat_csv_path, index=False)
+    #print(f"Saved flattened MVT data to \n{flat_csv_path}")
 
     # --- Step 2: Group by each time step and calculate statistics ---
     time_resolved_summary = []
@@ -3820,6 +3823,8 @@ def analysis_mvt_time_resolved_results_to_dataframe(
     final_MVT_csv_path = output_path / f"MVT_{name}_{selection_str}_{bin_width_ms}ms.csv"
     time_resolved_summary_df = pd.DataFrame(time_resolved_summary)
     time_resolved_summary_df.to_csv(final_MVT_csv_path, index=False)
+    if print_flag:
+        print(f"Saved final time-resolved MVT summary to \n{final_MVT_csv_path}")
 
     return time_resolved_summary_df
 

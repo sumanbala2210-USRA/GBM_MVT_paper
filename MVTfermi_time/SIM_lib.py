@@ -120,7 +120,7 @@ def send_email(subject='Python Script Completed', body='!!', attachment_paths=No
     msg['Subject'] = subject
     msg['From'] = '2210sumaanbala@gmail.com'
     # Join the list of recipients into a single comma-separated string
-    recipients = ['sumanbala2210@gmail.com', 'pv0004@uah.edu']
+    recipients = ['sumanbala2210@gmail.com'] #, 'pv0004@uah.edu']
     msg['To'] = ', '.join(recipients)
     msg.set_content(body)
 
