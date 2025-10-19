@@ -27,7 +27,7 @@ import sys
 import platform
 import shutil
 
-from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml, complex_pulse_list
+from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml, complex_pulse_list, KEY_abbreviations
 
 
 from TTE_SIM_v2 import Function_MVT_analysis, print_nested_dict, check_param_consistency, flatten_dict, GBM_MVT_analysis_det, GBM_MVT_analysis_complex, Function_MVT_analysis_complex, Function_MVT_analysis_time_resolved, Function_MVT_analysis_complex_time_resolved, Function_MVT_analysis_percentiles
@@ -449,12 +449,14 @@ def main(config_filepath: str):
         
         # Create a clean string of the key variable parameters
         param_parts = []
-        key_params = ['peak_amplitude', 'position', 'sigma', 'width', 'rise_time', 'decay_time', 'overall_amplitude', 'src_percentile']
+        #key_params = [ 'src_percentile']
+        key_params = list(KEY_abbreviations.keys()) + ['src_percentile'] 
         for key in key_params:
             #print("Key:", key)
             if key in bp:
-                param_parts.append(f"{key[:3]}={bp[key]}")
-        
+                param_parts.append(f"{KEY_abbreviations.get(key, key[:3])}={bp[key]}")
+                #print(f"Key: {key}, Abbreviation: {KEY_abbreviations.get(key, key[:3])}")
+
         param_str = ", ".join(param_parts)
         
         # Get detector and bin width info
@@ -464,7 +466,7 @@ def main(config_filepath: str):
         logging.info(f"  {i+1: >4}: {pulse_shape:<15} ({param_str}, {bin_width_str}{det_str})")
     logging.info("--------------------")
     ## =============================================================
-
+    #exit(1)
     logging.info(f"Found {len(tasks)} parameter sets to analyze. Starting parallel processing.")
 
     
