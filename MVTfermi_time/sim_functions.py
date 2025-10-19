@@ -414,3 +414,38 @@ def complex_pulse_wrapper_short_2p3ms(t, main_amplitude, position, overall_ampli
     # Call the actual generator function with the constructed params dict
     return generate_pulse_function(t, pulse_parameters)
 
+def two_gaussian(t, peak_amplitude, center_time1, sigma, center_time2, amplitude_ratio, sigma_ratio):
+    """
+    Generates a pulse composed of two Gaussian functions.
+
+    The first Gaussian is defined by the main parameters, and the second
+    is defined by ratios relative to the first.
+
+    Args:
+        t (np.ndarray): Array of times.
+        peak_amplitude (float): Amplitude of the first Gaussian.
+        center_time1 (float): Center time of the first Gaussian.
+        sigma (float): Sigma (width) of the first Gaussian.
+        center_time2 (float): Center time of the second Gaussian.
+        amplitude_ratio (float): Ratio of the second Gaussian's amplitude to the first's.
+        sigma_ratio (float): Ratio of the second Gaussian's sigma to the first's.
+
+    Returns:
+        (np.ndarray): The sum of the two Gaussian pulses.
+    """
+    # Parameters for the first Gaussian
+    amp1 = peak_amplitude
+    center1 = center_time1
+    sigma1 = sigma
+
+    # Derive parameters for the second Gaussian
+    amp2 = peak_amplitude * amplitude_ratio
+    center2 = center_time1 + center_time2 * sigma1
+    sigma2 = sigma * sigma_ratio
+
+    # Generate each pulse and add them together
+    pulse1 = gaussian2(t, amp1, center1, sigma1)
+    pulse2 = gaussian2(t, amp2, center2, sigma2)
+    
+    return pulse1 + pulse2
+

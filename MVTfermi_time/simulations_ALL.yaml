@@ -22,7 +22,7 @@ project_settings:
 pulse_definitions:
   gaussian:
     parameters:
-      sigma: [0.3] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+      sigma: [0.003] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
       #sigma: [0.05, 0.01] # [0.01, 0.05, 0.1, 0.5, 1.0]
     constants:
       center_time: 0.0
@@ -30,7 +30,7 @@ pulse_definitions:
   triangular:
     parameters:
       width: [0.3] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-      peak_time_ratio: [0.5, 0.2, 0.8]
+      peak_time_ratio: [0.5, 0.2] #, 0.8]
     constants:
       center_time: 0.0
       #peak_time_ratio: 0.5
@@ -59,7 +59,7 @@ pulse_definitions:
     parameters:
       # This is the second argument to your wrapper ('position')
       position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [5] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      overall_amplitude: [10] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
 
   complex_pulse_long:
@@ -72,23 +72,42 @@ pulse_definitions:
   complex_pulse_short:
     parameters:
       # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [1] #, 2, 3, 4, 5, 10, 50.0, 100.0] #[100] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [4.5, 6.2] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
+      overall_amplitude: [1, 2, 3, 4, 5, 10, 50, 100] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
   
   complex_pulse_short_2p10ms:
     parameters:
       # This is the second argument to your wrapper ('position')
-      position: [4.5] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [5] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
+      overall_amplitude: [50] #, 10, 50] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
 
   complex_pulse_short_2p3ms:
     parameters:
       # This is the second argument to your wrapper ('position')
       position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [100] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      overall_amplitude: [1, 2, 3, 4, 5, 10, 50] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
+
+  two_gaussian:
+    parameters:
+      sigma: [0.03] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.
+      sigma_ratio: [1, .5] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.
+      center_time2: [5] #, 4.5]
+      amplitude_ratio: [ 1, 2] #, 4, 5]
+    constants:
+      center_time1: 0.0
+
+  two_norris:
+    parameters:
+      sigma: [0.03] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.
+      sigma_ratio: [1, .5] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.
+      center_time2: [5, 7] #, 4.5]
+      amplitude_ratio: [ 1, 2] #, 4, 5]
+    constants:
+      center_time1: 0.0
+
 
 # ===================================================================
 #  3. SIMULATION CAMPAIGNS
@@ -110,7 +129,7 @@ simulation_campaigns:
     peak_amplitude: #[1.0] # [10.0, 3.0, 1.0, 0.3, 0.1, 0.03, 0.01]
     all_flag: true
     trigger_set:
-      - {trigger_number: 211211549, angle: 20, det: 'all', background_intervals: [[-20, -5.0],[75, 200]]}
+      #- {trigger_number: 211211549, angle: 20, det: 'all', background_intervals: [[-20, -5.0],[75, 200]]}
       #- {trigger_number: 250723551, angle: 30, det: ['n3'], background_intervals: [[-15, -5.0], [80, 210]]}
       #- {trigger_number: 250709653, angle: 40, det: ['n3'], background_intervals: [[-20, -5.0, 75, 200]]}
 
@@ -118,8 +137,8 @@ simulation_campaigns:
   constants:
     background_level: 0.3
     random_seed: 37
-    t_start: 4.0
-    t_stop: 12.0
+    t_start: 6.0
+    t_stop: 6.3
     en_lo: 8.0
     en_hi: 900.0
     gbm_data_path: None
@@ -143,8 +162,8 @@ simulation_campaigns:
   enabled: true
 
   parameters:
-    #peak_amplitude: [2] # [0.01, 1, 2, 3, 4, 5]  #[0.02, 0.03, 0.04, 0.05, 0.1, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50, 100, 200, 300, 400, 500]
-    peak_amplitude: [300] #, 0.02, 0.03, 0.04, 0.05, 0.1, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50] #, 100, 200, 300, 400, 500]
+    #peak_amplitude: [0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500]
+    peak_amplitude: [5] # 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50] #, 100, 200, 300, 400, 500]
 
   constants:
     trigger_number: 99999999
@@ -162,11 +181,12 @@ simulation_campaigns:
   pulses_to_run:
     # - gaussian
     # - triangular  # Example of disabling
-    - norris
+    # - norris
     # - fred
     # - lognormal
+    - two_gaussian
     # - complex_pulse  # Example of enabling a pulse for this campaign
-    # - complex_pulse_long  # Example of enabling a pulse for this campaign
+    # - complex_pulse_long  # Example of enabling a pulse
     # - complex_pulse_short
     # - complex_pulse_short_2p10ms
     # - complex_pulse_short_2p3ms
@@ -177,16 +197,16 @@ simulation_campaigns:
 # This section is read by your 'analyze.py' script.
 analysis_settings:
   # The analysis script will test every event file against these bin widths
-  bin_widths_to_analyze_ms: [1] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
+  bin_widths_to_analyze_ms: [0.1] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
   snr_timescales: [0.010, 0.016, 0.032, 0.064, 0.128, 0.256]
   snr_bw_ms: [16, 32, 64]  # The bin width (in ms) to use for the detector selection optimization
   #detector_selections: [['n0'], ['n2', 'na'], ['all']]
   detector_selections: [['n2', 'na']]
   extra_pulse: { pulse_shape: 'gaussian', sigma: 0.003, center_time: 0.0 }
-  time_resolved: False 
-  mvt_time_window: 0.1 
-  mvt_step_size: 0.1
+  time_resolved: False
+  mvt_time_window: 0.2
+  mvt_step_size: 0.2
   percentile_flag: True
-  src_percentiles: [10, 50, 100] # 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200]
-  padding_percentile: [5, 100]
+  src_percentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200] # 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200]
+  padding_percentile: [100]
   #detector_selections: [ ['all'] ]

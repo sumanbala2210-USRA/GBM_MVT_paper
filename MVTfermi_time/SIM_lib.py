@@ -22,7 +22,7 @@ import os
 from typing import Dict, Any, Tuple, Callable, List
 
 
-from sim_functions import gaussian2, triangular, constant, norris, fred, lognormal, complex_pulse_wrapper, complex_pulse_wrapper_long, complex_pulse_wrapper_short, complex_pulse_wrapper_short_2p10ms, complex_pulse_wrapper_short_2p3ms
+from sim_functions import gaussian2, triangular, constant, norris, fred, lognormal, complex_pulse_wrapper, complex_pulse_wrapper_long, complex_pulse_wrapper_short, complex_pulse_wrapper_short_2p10ms, complex_pulse_wrapper_short_2p3ms, two_gaussian
 # ========= Import necessary libraries =========
 
 
@@ -32,7 +32,23 @@ WRAPPER_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), 'run_haar_power_mo
 
 complex_pulse_list = ['complex_pulse', 'complex_pulse_long', 'complex_pulse_short', 'complex_pulse_short_2p10ms', 'complex_pulse_short_2p3ms']
 
-
+KEY_abbreviations = {
+        'peak_amplitude': 'amp',
+        'background_level': 'bkg',
+        'sigma': 'sig',
+        'width': 'w',
+        'center_time': 't0',
+        'rise_time': 'tr', 
+        'decay_time': 'td',
+        'peak_time_ratio': 'pr',
+        'angle': 'ang',
+        'position': 'pos',
+        'det': 'det', 
+        'overall_amplitude': 'oamp',
+        'sigma_ratio': 'sigr',
+        'center_time2': 'ct2',
+        'amplitude_ratio': 'ampr',
+    }
 
 
 def run_mvt_in_subprocess(
@@ -272,6 +288,7 @@ RELEVANT_NAMING_KEYS = {
         'fred':       ['peak_amplitude', 'rise_time', 'decay_time', 'angle', 'background_level', 'det'],
         'lognormal':  ['peak_amplitude', 'sigma', 'center_time', 'angle', 'background_level', 'det'],
         'complex_pulse': ['peak_amplitude', 'position', 'angle', 'background_level', 'overall_amplitude', 'det'],
+        'two_gaussian':  ['peak_amplitude', 'sigma', 'sigma_ratio', 'center_time2', 'amplitude_ratio', 'angle', 'background_level', 'det'],
     },
     'function': {
         # For function runs, 'angle' etc. are dummy values and should be IGNORED.
@@ -284,6 +301,7 @@ RELEVANT_NAMING_KEYS = {
         'complex_pulse_short': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
         'complex_pulse_short_2p10ms': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
         'complex_pulse_short_2p3ms': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
+        'two_gaussian':  ['peak_amplitude', 'sigma', 'sigma_ratio', 'center_time2', 'amplitude_ratio', 'angle', 'background_level', 'det'],
     }
 }
 
@@ -314,6 +332,7 @@ PULSE_MODEL_MAP = {
     'complex_pulse_short_2p10ms': (complex_pulse_wrapper_short_2p10ms, ['peak_amplitude', 'position', 'overall_amplitude']),
     'complex_pulse_short_2p3ms': (complex_pulse_wrapper_short_2p3ms, ['peak_amplitude', 'position', 'overall_amplitude']),
 
+    'two_gaussian':  (two_gaussian, ['peak_amplitude', 'center_time1', 'sigma', 'center_time2', 'amplitude_ratio', 'sigma_ratio']),
 }
 # ========= HELPER FUNCTIONS =========
 def e_n(number):
@@ -348,11 +367,7 @@ def _create_param_directory_name1(sim_type: str, pulse_shape: str, variable_para
     Creates a descriptive directory name using only the parameters relevant
     to the given sim_type and pulse_shape.
     """
-    key_abbreviations = {
-        'peak_amplitude': 'amp', 'background_level': 'bkg', 'sigma': 'sig',
-        'width': 'w', 'center_time': 't0', 'rise_time': 'tr', 'decay_time': 'td',
-        'peak_time_ratio': 'pr', 'angle': 'ang', 'position': 'pos',
-    }
+
     
     # Get the list of relevant keys for this specific sim_type and pulse_shape
     relevant_keys = RELEVANT_NAMING_KEYS.get(sim_type, {}).get(pulse_shape, [])
@@ -366,13 +381,13 @@ def _create_param_directory_name1(sim_type: str, pulse_shape: str, variable_para
                 # Check if this is a single-GRB run with all detectors
         if trigger_info.get('det') == 'all':
             # Name the directory by the detector setting
-            abbr = key_abbreviations.get('det', 'det')
+            abbr = KEY_abbreviations.get('det', 'det')
             val_str = 'all'
             name_parts.append(f"{abbr}_{val_str}")
         else:
             # Otherwise, default to naming by the angle for your other studies
             if 'angle' in trigger_info:
-                abbr = key_abbreviations.get('angle', 'ang')
+                abbr = KEY_abbreviations.get('angle', 'ang')
                 val_str = e_n(trigger_info['angle'])
                 name_parts.append(f"{abbr}_{val_str}")
 
@@ -385,8 +400,8 @@ def _create_param_directory_name1(sim_type: str, pulse_shape: str, variable_para
         # We already handled this dictionary above
         if key == 'trigger_set':
             continue
-            
-        abbr = key_abbreviations.get(key, key[:3])
+
+        abbr = KEY_abbreviations.get(key, key[:3])
         val_str = e_n(value)
         name_parts.append(f"{abbr}_{val_str}")
         #print(f"Key: {key}, Value: {value}, Abbr: {abbr}, Val_str: {val_str}")
@@ -399,12 +414,6 @@ def _create_param_directory_name(sim_type: str, pulse_shape: str, variable_param
     Creates a descriptive directory name using only the parameters relevant
     to the given sim_type and pulse_shape.
     """
-    key_abbreviations = {
-        'peak_amplitude': 'amp', 'background_level': 'bkg', 'sigma': 'sig',
-        'width': 'w', 'center_time': 't0', 'rise_time': 'tr', 'decay_time': 'td',
-        'peak_time_ratio': 'pr', 'angle': 'ang', 'position': 'pos', 'det': 'det', 
-        'overall_amplitude': 'oamp'
-    }
     
     relevant_keys = RELEVANT_NAMING_KEYS.get(sim_type, {}).get(pulse_shape, [])
     if extra_pulse:
@@ -424,8 +433,8 @@ def _create_param_directory_name(sim_type: str, pulse_shape: str, variable_param
     for key, value in sorted(variable_params.items()):
         if key not in relevant_keys or key == 'trigger_set':
             continue
-            
-        abbr = key_abbreviations.get(key, key)
+
+        abbr = KEY_abbreviations.get(key, key)
         val_str = e_n(value)
         name_parts.append(f"{abbr}_{val_str}")
         
