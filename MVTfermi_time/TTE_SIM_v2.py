@@ -227,7 +227,7 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         t_decay = params['decay_time']
         t_start = params['start_time']
         # Rough peak time is a few rise times after the start
-        peak_time_approx = t_start + 2 * t_rise 
+        peak_time_approx = t_start + np.sqrt(t_rise * t_decay)
         t_stop = peak_time_approx + 6 * t_decay
         return t_start, t_stop
 
@@ -245,6 +245,22 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         sigma_ratio = params['sigma_ratio']
         t_start = center1 - 5 * sigma
         t_stop = max(center2 + 5 * sigma * sigma_ratio, center1 + 5 * sigma)
+        return t_start, t_stop
+    
+    elif pulse_shape == 'two_norris':
+        t_rise1 = params['rise_time1']
+        t_decay1 = params['decay_time1']
+        par_ratio = params['par_ratio']
+        t_rise2 = t_rise1 * par_ratio
+        t_decay2 = t_decay1 * par_ratio
+        start1 = params['start_time']
+        shift = params['shift']
+        start2 = start1 + t_rise1 * shift
+        # Rough peak times
+        peak1 = start1 + 2 * t_rise1
+        peak2 = start2 + 2 * t_rise1
+        t_start = start1 - 2 * max(t_rise1, t_decay1, peak1)
+        t_stop = max(peak1 + 12 * t_decay1, peak2 + 12 * t_decay1)
         return t_start, t_stop
         
     # Add other pulse shapes as needed...

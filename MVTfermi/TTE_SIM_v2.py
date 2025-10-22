@@ -228,7 +228,7 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         t_decay = params['decay_time']
         t_start = params['start_time']
         # Rough peak time is a few rise times after the start
-        peak_time_approx = t_start + 2 * t_rise 
+        peak_time_approx = t_start + np.sqrt(t_rise * t_decay) 
         t_stop = peak_time_approx + 7 * t_decay
         return t_start, t_stop
 
@@ -308,7 +308,7 @@ def calculate_adaptive_simulation_params(pulse_shape: str, params: Dict) -> Dict
         peak_time = np.sqrt(t_rise * t_decay)
         # End the simulation after the pulse has decayed significantly (~10x decay time)
         t_start = start - 2 * t_rise 
-        t_stop = start + 6 * t_decay 
+        t_stop = peak_time + 6 * t_decay 
 
     elif pulse_shape == 'triangular':
         width = params['width']
