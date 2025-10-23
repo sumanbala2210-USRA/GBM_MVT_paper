@@ -101,12 +101,14 @@ pulse_definitions:
 
   two_norris:
     parameters:
-      sigma: [0.03] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.
-      sigma_ratio: [1, .5] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.
-      center_time2: [5, 7] #, 4.5]
-      amplitude_ratio: [ 1, 2] #, 4, 5]
+      rise_time1: [0.1] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+      decay_time1: [0.2] #, 0.02, 0.05, 0.1, 0.2, 0.5]
+      par_ratio: [0.5] #, 1, 2 ] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+      amplitude_ratio: [1] #, 2]
+      #decay_ratio: [1] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+      shift : [1, 2] # [0.5, 1, 2, 3, 4, 5, 6] #, 0.02, 0.05, 0.1, 0.2, 0.5]
     constants:
-      center_time1: 0.0
+      start_time: 0.0
 
 
 # ===================================================================
@@ -184,7 +186,8 @@ simulation_campaigns:
     # - norris
     # - fred
     # - lognormal
-    - two_gaussian
+    # - two_gaussian
+    - two_norris
     # - complex_pulse  # Example of enabling a pulse for this campaign
     # - complex_pulse_long  # Example of enabling a pulse
     # - complex_pulse_short
@@ -207,6 +210,7 @@ analysis_settings:
   mvt_time_window: 0.2
   mvt_step_size: 0.2
   percentile_flag: True
-  src_percentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200] # 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200]
+  src_percentiles: [10, 20, 50, 100, 200]
+  #src_percentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200] # 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200]
   padding_percentile: [100]
   #detector_selections: [ ['all'] ]
