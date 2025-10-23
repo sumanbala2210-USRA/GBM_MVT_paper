@@ -449,3 +449,40 @@ def two_gaussian(t, peak_amplitude, center_time1, sigma, center_time2, amplitude
     
     return pulse1 + pulse2
 
+def two_norris(t, peak_amplitude, tstart1, t_rise1, t_decay1, shift2, amplitude_ratio, par_ratio):
+    """
+    Generates a pulse composed of two Norris functions.
+
+    The first Norris pulse is defined by the main parameters, and the second
+    is defined by ratios relative to the first.
+
+    Args:
+        t (np.ndarray): Array of times.
+        peak_amplitude (float): Amplitude of the first Norris pulse.
+        tstart1 (float): Start time of the first Norris pulse.
+        t_rise1 (float): Rise time of the first Norris pulse.
+        t_decay1 (float): Decay time of the first Norris pulse.
+        shift2 (float): Shift of the second Norris pulse relative to the first.
+        amplitude_ratio (float): Ratio of the second Norris pulse's amplitude to the first's.
+        sigma_ratio (float): Ratio of the second Norris pulse's timescales to the first's.
+
+    Returns:
+        (np.ndarray): The sum of the two Norris pulses.
+    """
+    # Parameters for the first Norris pulse
+    amp1 = peak_amplitude
+    tstart_1 = tstart1
+    t_rise_1 = t_rise1
+    t_decay_1 = t_decay1
+
+    # Derive parameters for the second Norris pulse
+    amp2 = peak_amplitude * amplitude_ratio
+    tstart_2 = tstart1 + shift2 * t_decay1
+    t_rise_2 = t_rise1 * par_ratio
+    t_decay_2 = t_decay1 * par_ratio
+
+    # Generate each pulse and add them together
+    pulse1 = norris(t, amp1, tstart_1, t_rise_1, t_decay_1)
+    pulse2 = norris(t, amp2, tstart_2, t_rise_2, t_decay_2)
+    
+    return pulse1 + pulse2

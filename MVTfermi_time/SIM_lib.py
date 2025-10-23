@@ -22,7 +22,7 @@ import os
 from typing import Dict, Any, Tuple, Callable, List
 
 
-from sim_functions import gaussian2, triangular, constant, norris, fred, lognormal, complex_pulse_wrapper, complex_pulse_wrapper_long, complex_pulse_wrapper_short, complex_pulse_wrapper_short_2p10ms, complex_pulse_wrapper_short_2p3ms, two_gaussian
+from sim_functions import gaussian2, triangular, constant, norris, fred, lognormal, complex_pulse_wrapper, complex_pulse_wrapper_long, complex_pulse_wrapper_short, complex_pulse_wrapper_short_2p10ms, complex_pulse_wrapper_short_2p3ms, two_gaussian, two_norris
 # ========= Import necessary libraries =========
 
 
@@ -48,6 +48,10 @@ KEY_abbreviations = {
         'sigma_ratio': 'sigr',
         'center_time2': 'ct2',
         'amplitude_ratio': 'ampr',
+        'rise_time1': 'tr1',
+        'decay_time1': 'td1',
+        'par_ratio': 'parr',
+        'shift': 'shft',
     }
 
 
@@ -289,6 +293,7 @@ RELEVANT_NAMING_KEYS = {
         'lognormal':  ['peak_amplitude', 'sigma', 'center_time', 'angle', 'background_level', 'det'],
         'complex_pulse': ['peak_amplitude', 'position', 'angle', 'background_level', 'overall_amplitude', 'det'],
         'two_gaussian':  ['peak_amplitude', 'sigma', 'sigma_ratio', 'center_time2', 'amplitude_ratio', 'angle', 'background_level', 'det'],
+        'two_norris':    ['peak_amplitude', 'rise_time1', 'decay_time1', 'par_ratio', 'shift', 'amplitude_ratio', 'background_level', 'det'],
     },
     'function': {
         # For function runs, 'angle' etc. are dummy values and should be IGNORED.
@@ -301,7 +306,8 @@ RELEVANT_NAMING_KEYS = {
         'complex_pulse_short': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
         'complex_pulse_short_2p10ms': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
         'complex_pulse_short_2p3ms': ['peak_amplitude', 'position', 'background_level', 'overall_amplitude'],
-        'two_gaussian':  ['peak_amplitude', 'sigma', 'sigma_ratio', 'center_time2', 'amplitude_ratio', 'angle', 'background_level', 'det'],
+        'two_gaussian':  ['peak_amplitude', 'sigma', 'sigma_ratio', 'center_time2', 'amplitude_ratio', 'background_level'],
+        'two_norris':    ['peak_amplitude', 'rise_time1', 'decay_time1', 'par_ratio', 'shift', 'amplitude_ratio', 'background_level'],
     }
 }
 
@@ -333,6 +339,7 @@ PULSE_MODEL_MAP = {
     'complex_pulse_short_2p3ms': (complex_pulse_wrapper_short_2p3ms, ['peak_amplitude', 'position', 'overall_amplitude']),
 
     'two_gaussian':  (two_gaussian, ['peak_amplitude', 'center_time1', 'sigma', 'center_time2', 'amplitude_ratio', 'sigma_ratio']),
+    'two_norris':    (two_norris, ['peak_amplitude', 'start_time', 'rise_time1', 'decay_time1', 'shift', 'amplitude_ratio', 'par_ratio']),
 }
 # ========= HELPER FUNCTIONS =========
 def e_n(number):
