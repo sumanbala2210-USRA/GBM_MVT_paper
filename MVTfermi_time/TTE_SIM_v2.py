@@ -208,7 +208,7 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         # For a Gaussian, the interval containing >99.7% of the flux is +/- 3-sigma
         sigma = params['sigma']
         center = params['center_time']
-        return center - 5 * sigma, center + 5 * sigma
+        return center - 3 * sigma, center + 3 * sigma
 
     elif pulse_shape == 'triangular':
         # For a triangular pulse, the start and stop are explicitly defined
@@ -243,8 +243,8 @@ def calculate_src_interval(params: Dict) -> Tuple[float, float]:
         center_ratio = params['center_time2']
         center2 = center1 + sigma * center_ratio
         sigma_ratio = params['sigma_ratio']
-        t_start = center1 - 5 * sigma
-        t_stop = max(center2 + 5 * sigma * sigma_ratio, center1 + 5 * sigma)
+        t_start = center1 - 3 * sigma
+        t_stop = max(center2 + 3 * sigma * sigma_ratio, center1 + 3 * sigma)
         return t_start, t_stop
     
     elif pulse_shape == 'two_norris':
@@ -2682,7 +2682,7 @@ def get_window_width(
     # ---------------------------------------------------------
     if pulse_shape == 'gaussian':
         sigma = params['sigma']
-        shortest_scale = sigma * 5
+        shortest_scale = sigma * 3
 
     elif pulse_shape == 'triangular':
         width = params['width']
@@ -2712,7 +2712,30 @@ def get_window_width(
         center2 = center1 + sigma1 * center_ratio
         sigma_ratio = params['sigma_ratio']
         sigma2 = sigma1 * sigma_ratio
-        shortest_scale = sigma2 * 5
+        if anchor_point == 0:
+            shortest_scale = sigma1 * 3
+            window = duration * (src_percentile / 100.0)
+            return window, shortest_scale
+        elif anchor_point == 1:
+            shortest_scale = duration / 2
+            left_window = (src_percentile / 100.0) * duration / 2
+            right_window = left_window 
+            return (left_window, right_window)
+        elif anchor_point == 2:
+            shortest_scale = sigma2 * 3
+            window = duration * (src_percentile / 100.0)
+            return window, shortest_scale
+        elif anchor_point == 3:
+            shortest_scale = sigma1 * 3
+            left_window = (src_percentile / 100.0) * shortest_scale
+            right_window = (src_percentile / 100.0) * (duration - shortest_scale)
+            return (left_window, right_window)
+        elif anchor_point == 4:
+            shortest_scale =  sigma2 * 3
+            left_window = (src_percentile / 100.0) * (duration - shortest_scale)
+            right_window = (src_percentile / 100.0) *  shortest_scale
+            return (left_window, right_window)
+
     elif pulse_shape == 'two_norris':
         t_rise1 = params['rise_time1']
         t_decay1 = params['decay_time1']
@@ -2753,7 +2776,7 @@ def get_window_width(
                 window = window_l + ((src_percentile - 100) / 100.0) * duration
             return window, shortest_scale
 
-        elif anchor_point == 1:
+        elif anchor_point in [1, 3, 4]:
             # -------- MID ANCHOR (asymmetric left/right) --------
             # Left → controlled by shortest_scale
             if src_percentile <= 100:
@@ -2761,9 +2784,12 @@ def get_window_width(
                 right_window = (src_percentile / 100.0) * (duration - shortest_scale)
             else:
                 # First cover full duration, then stretch both sides proportionally
-                left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration
-                right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration
+                left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration / 2
+                right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration / 2
             return (left_window, right_window)
+
+        
+
 
         else:
             # -------- END ANCHOR --------
@@ -2777,15 +2803,30 @@ def get_window_width(
                 window_l = window_s + shortest_scale   # equals duration
                 window = window_l + ((src_percentile - 100) / 100.0) * duration
             return window, shortest_scale
+
+"""
     if pulse_shape == 'two_gaussian':
         # For two_gaussian, use symmetric window based on shortest_scale
+        
         if anchor_point == 1:
-            left_window = (src_percentile / 100.0) * shortest_scale * 5
+            #left_window = (src_percentile / 100.0) * shortest_scale * 5
+            left_window = (src_percentile / 100.0) * shortest_scale 
             right_window = left_window 
             return (left_window, right_window)
+        
+        if anchor_point in [1, 3, 4]:
+            if src_percentile <= 100:
+                left_window = (src_percentile / 100.0) * shortest_scale 
+                right_window = (src_percentile / 100.0) * (duration - shortest_scale)
+            else:
+                # First cover full duration, then stretch both sides proportionally
+                left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration
+                right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration
+            return (left_window, right_window)
         elif anchor_point == 0:
-            intersection = sigma1 * 5 + (center2 - center1) / 2
-            window = intersection + 2 * (src_percentile / 100.0) * shortest_scale
+            #intersection = sigma1 * 5 + (center2 - center1) / 2
+            #window = intersection + 2 * (src_percentile / 100.0) * shortest_scale
+            window = 2 * (src_percentile / 100.0) * shortest_scale
             return window, shortest_scale
         else:
             window = 2 * (src_percentile / 100.0) * shortest_scale
@@ -2816,10 +2857,10 @@ def get_window_width(
         else:
             window = 2 * (src_percentile / 100.0) * shortest_scale
             return window, shortest_scale
+"""
 
 
-
-def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
+def Function_MVT_analysis_percentilessss(input_info: Dict, output_info: Dict):
     sim_data_path = input_info['sim_data_path']
     haar_python_path = input_info['haar_python_path']
     analysis_settings = input_info['analysis_settings']
@@ -3210,6 +3251,301 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
     )
 
     return final_summary_list
+
+
+
+def _process_mvt_for_window(
+    t_start: float,
+    t_stop: float,
+    i: int,
+    total_events: np.ndarray,
+    base_iter_detail: Dict,
+    common_params: Dict,
+    window_params: Dict
+) -> Dict:
+    """
+    Processes a single time window to calculate MVT.
+    
+    This helper function handles event selection, plotting for a specific realization,
+    running the MVT subprocess, and formatting the result dictionary.
+    """
+    # Unpack common and window-specific parameters
+    bin_width_s = common_params['bin_width_s']
+    haar_python_path = common_params['haar_python_path']
+    base_params = common_params['base_params']
+    DEFAULT_PARAM_VALUE = -999.99 # Or whatever you use
+
+    pos = window_params['position_window']
+    padding = window_params['padding']
+    src_percentile = window_params['src_percentile']
+
+    # Ensure the window is valid and clip to data boundaries
+    t_start = max(t_start, common_params['t_start_data'] + common_params['duration'] / 50)
+    t_stop = min(t_stop, common_params['t_stop_data'] - common_params['duration'] / 50)
+
+    if t_stop <= t_start:
+        logging.warning(f"Skipped zero/negative length window for pos={pos}, padding={padding}")
+        mvt_val = DEFAULT_PARAM_VALUE
+        mvt_err = DEFAULT_PARAM_VALUE
+    else:
+        try:
+            # Create a plot for the second realization (i=1) to check the window
+            if i == 1:
+                create_final_plot(
+                    source_events=common_params['source_events'],
+                    background_events=common_params['background_events'],
+                    model_info={
+                        'func': None, 'func_par': None,
+                        'base_params': common_params['sim_params'],
+                        'snr_analysis': common_params['snr_timescales']
+                    },
+                    output_info=common_params['output_info'],
+                    src_range=(t_start, t_stop),
+                    src_percentile=src_percentile,
+                    position=pos,
+                    padding=padding,
+                    src_flag=True
+                )
+            
+            # Perform MVT analysis
+            bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
+            total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
+            counts, _ = np.histogram(total_events_window, bins=bins)
+            
+            mvt_res = run_mvt_in_subprocess(
+                counts=counts,
+                bin_width_s=bin_width_s,
+                haar_python_path=haar_python_path
+            )
+            plt.close('all')
+            mvt_val = mvt_res['mvt_ms']
+            mvt_err = mvt_res['mvt_err_ms']
+
+        except Exception as e:
+            logging.warning(f"Failed MVT calculation for realization {i}, interval {round(t_start,2)}-{round(t_stop,2)}: {e}")
+            mvt_val = DEFAULT_PARAM_VALUE
+            mvt_err = DEFAULT_PARAM_VALUE
+
+    # Assemble the final dictionary for this specific analysis window
+    iter_detail = {
+        **base_iter_detail,
+        'analysis_bin_width_ms': common_params['bin_width_ms'],
+        'mvt_ms': round(mvt_val, 4),
+        'mvt_err_ms': round(mvt_err, 4),
+        **base_params,
+        **window_params,  # This includes padding, position_window, and src_percentile
+    }
+    return iter_detail
+
+
+
+def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
+    # --- 1. Initial Setup and Data Loading ---
+    sim_data_path = input_info['sim_data_path']
+    haar_python_path = input_info['haar_python_path']
+    analysis_settings = input_info['analysis_settings']
+    
+    src_event_files = sorted(sim_data_path.glob('*_src.npz'))
+    back_event_files = sorted(sim_data_path.glob('*_bkgd.npz'))
+    if not src_event_files or not back_event_files:
+        logging.error(f"No source or background event files found in {sim_data_path}")
+        return []
+    
+    sim_params_file = input_info['sim_par_file']
+    sim_params = sim_params_file if isinstance(sim_params_file, dict) else yaml.safe_load(open(sim_params_file, 'r'))
+
+    data_src = np.load(src_event_files[0], allow_pickle=True)
+    data_back = np.load(back_event_files[0], allow_pickle=True)
+    
+    t_start_data = sim_params['t_start']
+    t_stop_data = sim_params['t_stop']
+    base_params = input_info['base_params']
+    NN_analysis = base_params['num_analysis']
+    snr_timescales = analysis_settings.get('snr_timescales', [0.010, 0.016, 0.032, 0.064, 0.128])
+    bin_width_ms = input_info['bin_width_ms']
+    src_percentile = base_params.get('src_percentile', 100)
+    padding_percentile = base_params.get('padding_percentile', [10])
+
+    source_event_realizations_all = data_src['realizations']
+    background_event_realizations = data_back['realizations']
+
+    NN = len(source_event_realizations_all)
+    if NN != len(background_event_realizations):
+        logging.warning(f"Mismatch in realization counts: {NN} (source) vs {len(background_event_realizations)} (background)")
+        return []
+    if NN < NN_analysis:
+        logging.warning(f"Insufficient realizations: {NN} (source) < {NN_analysis} (required)")
+        return []
+    source_event_realizations = source_event_realizations_all[:min(NN, NN_analysis)]
+
+    # --- 2. Calculate Pulse Characteristics ---
+    src_start, src_stop = calculate_src_interval(sim_params)
+    pulse_shape = sim_params['pulse_shape']
+    
+    # Approximate peak/midpoint
+    if pulse_shape == 'norris':
+        t_rise = sim_params['rise_time']
+        t_decay = sim_params['decay_time']
+        mid_point = np.sqrt(t_rise * t_decay)
+    elif pulse_shape == 'triangular':
+        width = sim_params['width']
+        peak_ratio = sim_params['peak_time_ratio']
+        mid_point = src_start + width * peak_ratio
+    elif pulse_shape == 'two_gaussian':
+        peak1 = sim_params['center_time1']
+        center_ratio = sim_params['center_time2']
+        sigma1 = sim_params['sigma']
+        sigma_ratio = sim_params['sigma_ratio']
+        sigma2 = sigma1 * sigma_ratio
+        peak2 = peak1 + center_ratio * sigma1
+        
+    elif pulse_shape == 'two_norris':
+        t_start1 = sim_params['start_time']
+        t_rise1 = sim_params['rise_time1']
+        t_decay1 = sim_params['decay_time1']
+        par_ratio = sim_params['par_ratio']
+        shift = sim_params['shift']
+        peak1 = t_start1 + np.sqrt(t_rise1 * t_decay1)
+        t_rise2 = t_rise1 * par_ratio
+        t_decay2 = t_decay1 * par_ratio
+        start2 = peak1 + t_decay1 * shift
+        peak2 = start2 + np.sqrt(t_rise2 * t_decay2)
+    else:
+        mid_point = (src_start + src_stop) / 2
+
+    mid_point = (src_start + src_stop) / 2
+
+    duration = src_stop - src_start
+    bin_width_s = bin_width_ms / 1000.0
+    iteration_results = []
+    
+    # Bundle common parameters to pass to the helper function
+    common_params = {
+        'bin_width_s': bin_width_s,
+        'bin_width_ms': bin_width_ms,
+        'haar_python_path': haar_python_path,
+        'base_params': base_params,
+        't_start_data': t_start_data,
+        't_stop_data': t_stop_data,
+        'duration': duration,
+        'sim_params': sim_params,
+        'snr_timescales': snr_timescales,
+        'output_info': output_info,
+    }
+
+    # --- 3. Main Loop over Realizations ---
+    for i, source_events in enumerate(source_event_realizations):
+        try:
+            background_events = background_event_realizations[i]
+            total_events = np.sort(np.concatenate([source_events, background_events]))
+            
+            # Add iteration-specific data to the common parameters
+            common_params.update({
+                'source_events': source_events,
+                'background_events': background_events
+            })
+
+            iteration_seed = sim_params['random_seed'] + i
+            total_src_counts = len(source_events)
+            total_bkgd_counts = len(background_events)
+            background_level_cps = total_bkgd_counts / duration
+            background_counts = background_level_cps * duration
+            snr_fluence = total_src_counts / np.sqrt(background_counts) if background_counts > 0 else 0
+
+            total_counts_fine, _ = np.histogram(total_events, bins=int(duration / 0.001))
+            snr_dict = _calculate_multi_timescale_snr(
+                total_counts=total_counts_fine, sim_bin_width=0.001,
+                back_avg_cps=background_level_cps,
+                search_timescales=snr_timescales
+            )
+
+            base_iter_detail = {
+                'iteration': i + 1,
+                'random_seed': iteration_seed,
+                'back_avg_cps': round(background_level_cps, 2),
+                'bkgd_counts': int(background_counts),
+                'src_counts': total_src_counts,
+                'S_flu': round(snr_fluence, 2),
+                **snr_dict,
+            }
+
+            # --- Analysis Window 1: Midpoint ---
+            pos = 1
+            left_w, right_w = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
+            t_start, t_stop = mid_point - left_w, mid_point + right_w
+            window_params = {'position_window': pos, 'padding': 0, 'src_percentile': src_percentile}
+            result = _process_mvt_for_window(t_start, t_stop, i, total_events, base_iter_detail, common_params, window_params)
+            iteration_results.append(result)
+
+            if pulse_shape in ['two_gaussian', 'two_norris']:
+                padding = 0
+                for pos in [3, 4]:
+                    if pos == 3:
+                        left_w, right_w = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
+                        t_start, t_stop = peak1 - left_w, peak1 + right_w
+                    else:
+                        left_w, right_w = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration) 
+                        t_start, t_stop = peak2 - left_w, peak2 + right_w
+
+                    window_params = {'position_window': pos, 'padding': padding, 'src_percentile': src_percentile}
+                    result = _process_mvt_for_window(t_start, t_stop, i, total_events, base_iter_detail, common_params, window_params)
+                    iteration_results.append(result)
+
+
+            # --- Analysis Windows 2 & 3: Start and End with Padding ---
+            for pos in [0, 2]:
+                for padding in padding_percentile:
+                    window_width, shortest_scale = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
+                    if pos == 0: 
+                        t_start = src_start - (padding/100.0 * shortest_scale*2)
+                        t_stop = src_start + window_width
+                    else: 
+                        t_start = src_stop - window_width
+                        t_stop = src_stop + (padding/100.0 * shortest_scale)
+
+                    window_params = {'position_window': pos, 'padding': padding, 'src_percentile': src_percentile}
+                    result = _process_mvt_for_window(t_start, t_stop, i, total_events, base_iter_detail, common_params, window_params)
+                    iteration_results.append(result)
+
+            # --- Analysis Windows 2 & 3: Start and End with Padding ---
+            
+
+        except Exception as e:
+            logging.warning(f"Failed analysis on realization {i} in {src_event_files[0].name}: {e}")
+            iteration_results.append({'iteration': i + 1,
+                                      'random_seed': sim_params['random_seed'] + i,
+                                      'analysis_bin_width_ms': bin_width_ms,
+                                      'mvt_ms': DEFAULT_PARAM_VALUE,
+                                      'mvt_err_ms': DEFAULT_PARAM_VALUE,
+                                      'back_avg_cps': DEFAULT_PARAM_VALUE,
+                                      'bkgd_counts': DEFAULT_PARAM_VALUE,
+                                      'src_counts': DEFAULT_PARAM_VALUE,
+                                      'S_flu': DEFAULT_PARAM_VALUE,
+                                      **base_params,
+                                      'padding': 0,
+                                      'position_window': 1,
+                                      'src_percentile': src_percentile})
+            # ... (Your existing top-level exception handler for the realization loop) ...
+
+    # --- 4. Final Summary Generation ---
+    final_summary_list = analysis_mvt_results_to_dataframe_percentile(
+        iteration_results,
+        input_info=input_info,
+        output_info=output_info,
+        bin_width_ms=bin_width_ms,
+        realizations_per_group=len(source_event_realizations)
+    )
+
+    return final_summary_list
+
+
+
+
+
+
+
+
+
 
 
 
