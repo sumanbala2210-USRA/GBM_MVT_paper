@@ -2942,10 +2942,7 @@ def _process_mvt_for_window(
                     padding=padding,
                     src_flag=True
                 )
-            mvt_val = DEFAULT_PARAM_VALUE
-            mvt_err = DEFAULT_PARAM_VALUE
-
-            """
+            
             # Perform MVT analysis
             bins = np.arange(t_start, t_stop + bin_width_s, bin_width_s)
             total_events_window = total_events[(total_events >= t_start) & (total_events <= t_stop)]
@@ -2959,7 +2956,7 @@ def _process_mvt_for_window(
             plt.close('all')
             mvt_val = mvt_res['mvt_ms']
             mvt_err = mvt_res['mvt_err_ms']
-            """
+
         except Exception as e:
             logging.warning(f"Failed MVT calculation for realization {i}, interval {round(t_start,2)}-{round(t_stop,2)}: {e}")
             mvt_val = DEFAULT_PARAM_VALUE
