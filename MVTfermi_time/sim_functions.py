@@ -474,10 +474,10 @@ def two_norris(t, peak_amplitude, tstart1, t_rise1, t_decay1, shift2, amplitude_
     tstart_1 = tstart1
     t_rise_1 = t_rise1
     t_decay_1 = t_decay1
-
+    peak1 = tstart_1 + np.sqrt(t_rise_1 * t_decay_1)
     # Derive parameters for the second Norris pulse
     amp2 = peak_amplitude * amplitude_ratio
-    tstart_2 = tstart1 + shift2 * t_decay1
+    tstart_2 = peak1 + shift2 * t_decay1
     t_rise_2 = t_rise1 * par_ratio
     t_decay_2 = t_decay1 * par_ratio
 
