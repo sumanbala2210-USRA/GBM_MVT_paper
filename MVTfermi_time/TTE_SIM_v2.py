@@ -2768,7 +2768,7 @@ def get_window_width(
             shortest_scale = peak1
             #left_window = (src_percentile / 100.0) * shortest_scale
             if src_percentile <= 100:
-                left_window = shortest_scale
+                left_window = shortest_scale * (src_percentile / 100.0)
             else:
                 left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration / 2
             right_window = (src_percentile / 100.0) * (duration - shortest_scale)
@@ -2776,7 +2776,7 @@ def get_window_width(
         elif anchor_point == 4:
             shortest_scale = t_decay2 * 6
             if src_percentile <= 100:
-                right_window = shortest_scale
+                right_window = shortest_scale * (src_percentile / 100.0)
             else:
                 right_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration / 2
             left_window = (src_percentile / 100.0) * (duration - shortest_scale)
@@ -2814,8 +2814,6 @@ def get_window_width(
                 right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration / 2
             return (left_window, right_window)
 
-        
-
 
         else:
             # -------- END ANCHOR --------
@@ -2830,60 +2828,7 @@ def get_window_width(
                 window = window_l + ((src_percentile - 100) / 100.0) * duration
             return window, shortest_scale
 
-"""
-    if pulse_shape == 'two_gaussian':
-        # For two_gaussian, use symmetric window based on shortest_scale
-        
-        if anchor_point == 1:
-            #left_window = (src_percentile / 100.0) * shortest_scale * 5
-            left_window = (src_percentile / 100.0) * shortest_scale 
-            right_window = left_window 
-            return (left_window, right_window)
-        
-        if anchor_point in [1, 3, 4]:
-            if src_percentile <= 100:
-                left_window = (src_percentile / 100.0) * shortest_scale 
-                right_window = (src_percentile / 100.0) * (duration - shortest_scale)
-            else:
-                # First cover full duration, then stretch both sides proportionally
-                left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration
-                right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration
-            return (left_window, right_window)
-        elif anchor_point == 0:
-            #intersection = sigma1 * 5 + (center2 - center1) / 2
-            #window = intersection + 2 * (src_percentile / 100.0) * shortest_scale
-            window = 2 * (src_percentile / 100.0) * shortest_scale
-            return window, shortest_scale
-        else:
-            window = 2 * (src_percentile / 100.0) * shortest_scale
-            return window, shortest_scale
-    if pulse_shape == 'two_norrisss':
-        # For two_norris, use symmetric window based on shortest_scale
-        if anchor_point == 1:
-                        # Left → controlled by shortest_scale
-            if src_percentile <= 100:
-                left_window = (src_percentile / 100.0) * shortest_scale
-                right_window = (src_percentile / 100.0) * (duration - shortest_scale)
-            else:
-                # First cover full duration, then stretch both sides proportionally
-                left_window = shortest_scale + ((src_percentile - 100) / 100.0) * duration
-                right_window = (duration - shortest_scale) + ((src_percentile - 100) / 100.0) * duration
-            return (left_window, right_window)
-        elif anchor_point == 0:
-            if src_percentile <= 50:
-                window = 2 * (src_percentile / 100.0) * shortest_scale
-            elif src_percentile <= 100:
-                window_s = shortest_scale
-                window = window_s + 2 * ((src_percentile - 50) / 100.0) * (duration - shortest_scale)
-            else:
-                window_s = shortest_scale
-                window_l = window_s + (duration - shortest_scale)   # equals duration
-                window = window_l + ((src_percentile - 100) / 100.0) * duration
-            return window, shortest_scale
-        else:
-            window = 2 * (src_percentile / 100.0) * shortest_scale
-            return window, shortest_scale
-"""
+
 
 
 
@@ -3106,12 +3051,14 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
             }
 
             # --- Analysis Window 1: Midpoint ---
+            """
             pos = 1
             left_w, right_w = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
             t_start, t_stop = mid_point - left_w, mid_point + right_w
             window_params = {'position_window': pos, 'padding': 0, 'src_percentile': src_percentile}
             result = _process_mvt_for_window(t_start, t_stop, i, total_events, base_iter_detail, common_params, window_params)
             iteration_results.append(result)
+            """
 
             if pulse_shape in ['two_gaussian', 'two_norris']:
                 padding = 0
@@ -3127,7 +3074,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
                     result = _process_mvt_for_window(t_start, t_stop, i, total_events, base_iter_detail, common_params, window_params)
                     iteration_results.append(result)
 
-
+            """
             # --- Analysis Windows 2 & 3: Start and End with Padding ---
             for pos in [0, 2]:
                 for padding in padding_percentile:
@@ -3142,6 +3089,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
                     window_params = {'position_window': pos, 'padding': padding, 'src_percentile': src_percentile}
                     result = _process_mvt_for_window(t_start, t_stop, i, total_events, base_iter_detail, common_params, window_params)
                     iteration_results.append(result)
+            """
 
             # --- Analysis Windows 2 & 3: Start and End with Padding ---
             
