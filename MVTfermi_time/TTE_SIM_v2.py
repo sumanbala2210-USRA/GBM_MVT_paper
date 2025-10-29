@@ -3292,7 +3292,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
 
             if pulse_shape in ['two_gaussian', 'two_norris']:
                 padding = 0
-                for pos in [3, 4, 3.1, 4.1]:
+                for pos in [3, 4, 33, 44]:
                     if pos == 3:
                         left_w, right_w = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration)
                         t_start, t_stop = peak1 - left_w*100, peak1 + right_w
@@ -3300,7 +3300,7 @@ def Function_MVT_analysis_percentiles(input_info: Dict, output_info: Dict):
                         left_w, right_w = get_window_width(pulse_shape, pos, src_percentile, sim_params, duration) 
                         t_start, t_stop = peak2 - left_w, peak2 + right_w*100
 
-                    elif pos == 3.1:
+                    elif pos == 33:
                         left_w, right_w = get_window_width(pulse_shape, 3, src_percentile, sim_params, duration)
                         t_start, t_stop = peak1 - left_w, peak1 + right_w
                     else: # pos ==4.1
