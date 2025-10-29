@@ -22,7 +22,7 @@ project_settings:
 pulse_definitions:
   gaussian:
     parameters:
-      sigma: [0.003] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+      sigma: [0.01, 0.03] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
       #sigma: [0.05, 0.01] # [0.01, 0.05, 0.1, 0.5, 1.0]
     constants:
       center_time: 0.0
@@ -90,12 +90,21 @@ pulse_definitions:
       overall_amplitude: [1, 2, 3, 4, 5, 10, 50] #, 10.0, 20.0, 50.0, 100.0]
     constants: {}
 
+  two_gaussian1:
+    parameters:
+      sigma: [0.03] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.
+      sigma_ratio: [0.333, 1, 3.33] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.
+      center_time2: [1, 2, 3, 4, 5] #, 4.5]
+      amplitude_ratio: [ 0.5, 1, 2] #, 4, 5]
+    constants:
+      center_time1: 0.0
+
   two_gaussian:
     parameters:
       sigma: [0.03] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.001, 0.
-      sigma_ratio: [1, .5] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.
-      center_time2: [5] #, 4.5]
-      amplitude_ratio: [ 1, 2] #, 4, 5]
+      sigma_ratio: [0.33, 1, 3.33] #, 0.1, 0.05, 0.01] #, 0.02] # 0.0005, 0.
+      center_time2: [1, 2, 3, 4, 5] #, 4.5]
+      amplitude_ratio: [0.5, 1, 2] #, 4, 5]
     constants:
       center_time1: 0.0
 
@@ -103,8 +112,8 @@ pulse_definitions:
     parameters:
       rise_time1: [0.1] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
       decay_time1: [0.2] #, 0.02, 0.05, 0.1, 0.2, 0.5]
-      par_ratio: [0.5] #, 1, 2 ] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
-      amplitude_ratio: [1] #, 2]
+      par_ratio: [0.5, 1, 2] #, 1, 2 ] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+      amplitude_ratio: [1, 2] #, 2]
       #decay_ratio: [1] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
       shift : [1, 2] # [0.5, 1, 2, 3, 4, 5, 6] #, 0.02, 0.05, 0.1, 0.2, 0.5]
     constants:
@@ -139,12 +148,12 @@ simulation_campaigns:
   constants:
     background_level: 0.3
     random_seed: 37
-    t_start: 6.0
-    t_stop: 6.3
+    t_start: 0
+    t_stop: 12
     en_lo: 8.0
     en_hi: 900.0
     gbm_data_path: None
-    total_sim: 30
+    total_sim: 10
 
 
   # List the pulse shapes from the library you want to run in this campaign.
@@ -165,14 +174,14 @@ simulation_campaigns:
 
   parameters:
     #peak_amplitude: [0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500]
-    peak_amplitude: [5] # 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50] #, 100, 200, 300, 400, 500]
+    peak_amplitude: [300] # 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50] #, 100, 200, 300, 400, 500]
 
   constants:
     trigger_number: 99999999
     det: x
     angle: 0
-    t_start: 4
-    t_stop: 12
+    t_start: 0.022 #0.06
+    t_stop: 10
     background_level: 1
     scale_factor: 1000
     random_seed: 37
@@ -186,8 +195,8 @@ simulation_campaigns:
     # - norris
     # - fred
     # - lognormal
-    # - two_gaussian
-    - two_norris
+    - two_gaussian
+    # - two_norris
     # - complex_pulse  # Example of enabling a pulse for this campaign
     # - complex_pulse_long  # Example of enabling a pulse
     # - complex_pulse_short
@@ -201,7 +210,7 @@ simulation_campaigns:
 analysis_settings:
   # The analysis script will test every event file against these bin widths
   bin_widths_to_analyze_ms: [0.1] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
-  snr_timescales: [0.010, 0.016, 0.032, 0.064, 0.128, 0.256]
+  snr_timescales: [0.010, 0.016]
   snr_bw_ms: [16, 32, 64]  # The bin width (in ms) to use for the detector selection optimization
   #detector_selections: [['n0'], ['n2', 'na'], ['all']]
   detector_selections: [['n2', 'na']]
@@ -210,7 +219,10 @@ analysis_settings:
   mvt_time_window: 0.2
   mvt_step_size: 0.2
   percentile_flag: True
-  src_percentiles: [10, 20, 50, 100, 200]
+  src_percentiles: [10, 20, 40, 60, 80, 90, 100, 110, 120, 140, 150, 200]
   #src_percentiles: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200] # 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150, 200]
   padding_percentile: [100]
+  time_evolved: False
+  center_time: 0.0
+  increment: 1.0
   #detector_selections: [ ['all'] ]

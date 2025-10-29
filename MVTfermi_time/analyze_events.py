@@ -164,10 +164,12 @@ def generate_analysis_tasks(config: Dict[str, Any]) -> 'Generator':
                 total_sim_analysis = campaign['constants'].get('total_sim', 100)
                 param_names = list(variable_params_config.keys())
                 param_values = [_parse_param(v) for v in variable_params_config.values()]
+                t_start = campaign['constants'].get('t_start', 0.0)
+                t_stop = campaign['constants'].get('t_stop', 15.0)
 
                 for combo in itertools.product(*param_values):
                     current_variable_params = dict(zip(param_names, combo))
-                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 'time_resolved': time_res, 'percentile_flag': percentile_flag, 'padding_percentile': padding_percentile}
+                    base_params = {**current_variable_params, 'pulse_shape': pulse_shape, 'sim_type': sim_type, 'num_analysis': total_sim_analysis, 't_start_analysis': t_start, 't_stop_analysis': t_stop, 'time_resolved': time_res, 'percentile_flag': percentile_flag, 'padding_percentile': padding_percentile}
                     
                     # Safety checks for this workflow
                     base_dets = current_variable_params.get('trigger_set', {}).get('det')
