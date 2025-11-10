@@ -14,7 +14,9 @@ This work uses **two separate Python environments**.
 Install using the existing `pyproject.toml` in this repository.
 
 Example:
+```bash
 pip install .
+```
 
 (you may activate your own main venv/conda environment first)
 
@@ -23,13 +25,17 @@ The HAAR MVT estimator must run under specific versions to reproduce the publish
 
 Example HAAR environment creation:
 
+```bash
 conda create -n haar_env python=3.10.8
 conda activate haar_env
 pip install -r requirements_haar.txt
+```
 
 Find the python executable for ENV‑B:
 
+```bash
 which python
+```
 
 Then set that path inside `simulations_ALL.yaml`:
 
@@ -42,7 +48,9 @@ project_settings:
 
 Run:
 
+```bash
 python test_mvt.py
+```
 
 This script:
 1) runs HAAR MVT inside the current Python environment
