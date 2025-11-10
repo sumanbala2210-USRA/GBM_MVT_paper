@@ -69,6 +69,24 @@ project_settings:
     haar_python_path: "/path/to/conda/envs/haar_env/bin/python"
 ```
 
+
+## Verify MVT Results
+
+Run:
+
+```bash
+python test_mvt.py
+```
+
+This script:
+1) runs HAAR MVT inside the current Python environment and create `test_haar_mod.png`
+2) runs HAAR MVT through ENV‑B via subprocess, create `Best_second_haar_mod.png`
+3) prints both results for comparison and comape both the plots with `Best_MVT_ref.png`. 
+
+Final summary CSV files are included so values can be verified directly.
+
+---
+
 ---
 ## Configuration (`simulation_ALL.yaml`)
 
