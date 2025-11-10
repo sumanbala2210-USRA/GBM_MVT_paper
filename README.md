@@ -65,6 +65,7 @@ project_settings:
 Run:
 
 ```bash
+conda activate mvt_fermi
 python test_mvt.py
 ```
 

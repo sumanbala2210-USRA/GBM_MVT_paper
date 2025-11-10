@@ -131,15 +131,37 @@ This is where you define the actual simulation and analysis runs. You can have m
 
 ```yaml
 simulation_campaigns:
-- name: GBM_Single_GRB_Analysis
-  type: gbm
+- name: FUNCTION_Pulse_Simulation
+  type: function
   enabled: true
   parameters:
     peak_amplitude: [10, 50, 100]
-    trigger_set:
-      - {trigger_number: 250709653, angle: 20, det: 'all'}
+
+  constants:
+    trigger_number: 99999999
+    det: x
+    angle: 0
+    t_start: 4 
+    t_stop: 12
+    background_level: 1
+    scale_factor: 1000 # Background Count/Sec
+    random_seed: 37 # Starting random seed value
+    grid_resolution: 0.00001
+    total_sim: 30 # Total number of simulations
+
   pulses_to_run:
-    - complex_pulse
+    # - gaussian
+    # - triangular  # Example of disabling a pulse for this campaign
+    - norris
+    # - fred
+    # - lognormal
+    # - complex_pulse  # Example of enabling a pulse for this campaign
+    # - complex_pulse_long  # Example of enabling a pulse for this campaign
+    # - complex_pulse_short
+    # - complex_pulse_short_2p10ms
+    # - complex_pulse_short_2p3ms
+
+    
 ```
 * `type`: Can be `gbm` or `function`.
 * `parameters`: A dictionary where each key has a list of values. The scripts will create a run for every possible combination of these parameters.
