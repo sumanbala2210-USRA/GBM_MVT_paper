@@ -65,9 +65,8 @@ Then set that path inside `simulations_ALL.yaml`:
 
 project_settings:
     haar_python_path: "/path/to/conda/envs/haar_env/bin/python"
+
 ---
-
-
 ## Configuration (`simulation_ALL.yaml`)
 
 The entire workflow is controlled by the `simulation_ALL.yaml` file. It is divided into four main sections:
