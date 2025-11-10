@@ -11,14 +11,42 @@ This is NOT the development repository — this snapshot is frozen only to repro
 This work uses **two separate Python environments**.
 
 ### ENV‑A (main analysis environment)
-Install using the existing `pyproject.toml` in this repository.
 
-Example:
+You may install this environment either **with conda** or **without conda**.
+
+#### Option 1 — using conda
+
 ```bash
+conda create -n mvt_fermi python=3.10
+conda activate mvt_fermi
 pip install .
 ```
 
-(you may activate your own main venv/conda environment first)
+Optional UI + development extras:
+
+```bash
+pip install .[ui,dev]
+```
+
+* `[ui]`: Includes `streamlit`, `seaborn`, and `plotly` for building GUIs and advanced plots.
+* `[dev]`: Includes `jupyter` + `notebook` support for interactive development.
+
+#### Option 2 — without conda (standard venv)
+
+```bash
+python3 -m venv mvt_fermi
+source mvt_fermi/bin/activate      # (Linux/Mac)
+mvt_fermi\Scripts\activate.bat    # (Windows)
+pip install .
+```
+
+Optional extras:
+
+```bash
+pip install .[ui,dev]
+```
+
+---
 
 ### ENV‑B (HAAR environment)
 The HAAR MVT estimator must run under specific versions to reproduce the published values.
@@ -71,7 +99,7 @@ python classify_mvt_point.py --mvt_ms 5.0 --snr_mvt 120.0
 python classify_mvt_point.py --mvt_ms 5.0 --snr_mvt 120.0 --mode plot
 ```
 
-This returns which side of the validation boundary the point belongs to..
+This returns which side of the validation boundary the point belongs to. 
 
 ---
 
