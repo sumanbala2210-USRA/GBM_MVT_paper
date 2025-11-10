@@ -48,7 +48,7 @@ This work uses **two separate Python environments**.
 ### ENV‑B (HAAR environment)
 The HAAR MVT estimator must run under specific versions to reproduce the published values.
 
-Example HAAR environment creation:
+4. **Example HAAR environment creation:**
 
 ```bash
 conda create -n haar_env python=3.10.8
@@ -56,12 +56,12 @@ conda activate haar_env
 pip install -r requirements_haar.txt
 ```
 
-Find the python executable for ENV‑B:
+5. **Find the python executable for ENV‑B:**
 
 ```bash
 which python
 ```
-Then set that path inside `simulations_ALL.yaml`:
+6. **Then set that path inside `simulations_ALL.yaml`:**
 
 project_settings:
     haar_python_path: "/path/to/conda/envs/haar_env/bin/python"
@@ -79,7 +79,6 @@ project_settings:
   data_path: '001_DATA'
   results_path: '01_ANALYSIS_RESULTS'
   haar_python_path: "/path/to/your/python" # Path to the Python env with haar_power installed
-  extra_pulse: "path/to/your/feature_pulse.npz" # Used for complex analysis
 ```
 
 ### `pulse_definitions`
