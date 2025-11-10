@@ -18,10 +18,6 @@ The HAAR environment (ENV-B) requires Python 3.10.8, which is easiest to create 
 
 ### ENV‑A (main analysis environment)
 
-You may install this environment either **with conda** or **without conda**.
-
-#### Option 1 — using conda
-
 ```bash
 conda create -n mvt_fermi python=3.10
 conda activate mvt_fermi
@@ -37,20 +33,6 @@ pip install .[ui,dev]
 * `[ui]`: Includes `streamlit`, `seaborn`, and `plotly` for building GUIs and advanced plots.
 * `[dev]`: Includes `jupyter` + `notebook` support for interactive development.
 
-#### Option 2 — without conda (standard venv)
-
-```bash
-python3 -m venv mvt_fermi
-source mvt_fermi/bin/activate      # (Linux/Mac)
-mvt_fermi\Scripts\activate.bat    # (Windows)
-pip install .
-```
-
-Optional extras:
-
-```bash
-pip install .[ui,dev]
-```
 
 ---
 
