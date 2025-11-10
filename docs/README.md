@@ -22,8 +22,8 @@ This toolkit provides a powerful, configuration-driven pipeline to perform high-
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/sumanbala2210-USRA/mvt_fermi.git](https://github.com/sumanbala2210-USRA/mvt_fermi.git)
-    cd mvt_fermi
+    git clone [https://github.com/sumanbala2210-USRA/GBM_MVT_paper.git](https://github.com/sumanbala2210-USRA/GBM_MVT_paper.git)
+    cd GBM_MVT_paper
     ```
 ## Two Python Environments Required
 
@@ -34,6 +34,8 @@ This work uses **two separate Python environments**.
 2.  **Install the core package:**
     This will install the main library and all essential dependencies.
     ```bash
+    conda create -n mvt_fermi
+    conda activate mvt_fermi
     pip install .
     ```
 
