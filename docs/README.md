@@ -81,6 +81,7 @@ project_settings:
 Run:
 
 ```bash
+conda activate mvt_fermi
 python test_mvt.py
 ```
 
@@ -166,11 +167,11 @@ analysis_settings:
 * `extra_pulse`: Activates the "assemble-in-analysis" mode for `complex_pulse` runs.
 
 ---
-## 🔬 Basic Workflow
+## 🔬 Basic Workflow (Make sure your environment is `mvt_fermi`)
 
 The process involves two main steps: generating the data and then analyzing it.
 
-### Step 1: Generate Event Files
+### Step 1: Generate Event Files 
 First, configure your `simulation_ALL.yaml` to define the data you want to create. For example, to generate the template and feature files for a complex analysis, you would set up two separate campaigns and enable them.
 
 Then, run the generation script from your terminal:
@@ -196,7 +197,7 @@ All results are saved in a timestamped folder within `01_ANALYSIS_RESULTS` to pr
 ```
 01_ANALYSIS_RESULTS/
 └── run_0.1_25_09_02-11_46/      <-- New folder for each analysis run
-    ├── gbm/
+    ├── function/
     │   └── complex_pulse/
     │       ├── amp_50-pos_3.0/         <-- Folder for one assembled pulse analysis
     │       │   ├── Detailed_...csv     (Per-realization results)
@@ -206,8 +207,8 @@ All results are saved in a timestamped folder within `01_ANALYSIS_RESULTS` to pr
     │       └── amp_100-pos_3.0/
     │           └── ...
     │
-    ├── gbm_complex_pulse_summary.csv   <-- Clean, symmetric summary for this group
-    ├── gbm_gaussian_summary.csv        <-- Clean, symmetric summary for another group
+    ├── function_complex_pulse_summary.csv   <-- Clean, symmetric summary for this group
+    ├── function_gaussian_summary.csv        <-- Clean, symmetric summary for another group
     └── final_summary_results.csv       <-- Master summary with all results
 ```
 * **Intermediate Files**: For each analysis run, the script saves a detailed CSV with per-realization results, a parameter file, and a plot of the MVT distribution.
