@@ -63,8 +63,11 @@ which python
 ```
 6. **Then set that path inside `simulations_ALL.yaml`:**
 
+```yaml
 project_settings:
+
     haar_python_path: "/path/to/conda/envs/haar_env/bin/python"
+```
 
 ---
 ## Configuration (`simulation_ALL.yaml`)
