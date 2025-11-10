@@ -210,6 +210,20 @@ All results are saved in a timestamped folder within `01_ANALYSIS_RESULTS` to pr
 * **Final Files**: The script produces a master CSV file with all results, as well as separate, clean summary CSVs for each `sim_type` and `pulse_shape`.
 
 ---
+## Classification of external MVT values
+
+The helper script `classify_mvt_point.py` can be used to compare a new GRB MVT measurement against the validation boundary curve.
+
+Example:
+
+```bash
+python classify_mvt_point.py --mvt_ms 5.0 --snr_mvt 120.0
+python classify_mvt_point.py --mvt_ms 5.0 --snr_mvt 120.0 --mode plot
+```
+
+This returns which side of the validation boundary the point belongs to. 
+
+---
 ## License
 
 This project is licensed under the Apache License 2.0.
