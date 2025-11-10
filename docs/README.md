@@ -19,11 +19,17 @@ This toolkit provides a powerful, configuration-driven pipeline to perform high-
 ---
 ## Installation
 
+
 1.  **Clone the repository:**
     ```bash
     git clone [https://github.com/sumanbala2210-USRA/mvt_fermi.git](https://github.com/sumanbala2210-USRA/mvt_fermi.git)
     cd mvt_fermi
     ```
+## Two Python Environments Required
+
+This work uses **two separate Python environments**.
+
+### ENV‑A (main analysis environment)
 
 2.  **Install the core package:**
     This will install the main library and all essential dependencies.
@@ -39,7 +45,29 @@ This toolkit provides a powerful, configuration-driven pipeline to perform high-
     * `[ui]`: Includes `streamlit`, `seaborn`, and `plotly` for building graphical user interfaces and advanced plots.
     * `[dev]`: Includes `jupyter` and `notebook` for interactive development.
 
+### ENV‑B (HAAR environment)
+The HAAR MVT estimator must run under specific versions to reproduce the published values.
+
+Example HAAR environment creation:
+
+```bash
+conda create -n haar_env python=3.10.8
+conda activate haar_env
+pip install -r requirements_haar.txt
+```
+
+Find the python executable for ENV‑B:
+
+```bash
+which python
+```
+Then set that path inside `simulations_ALL.yaml`:
+
+project_settings:
+    haar_python_path: "/path/to/conda/envs/haar_env/bin/python"
 ---
+
+
 ## Configuration (`simulation_ALL.yaml`)
 
 The entire workflow is controlled by the `simulation_ALL.yaml` file. It is divided into four main sections:
