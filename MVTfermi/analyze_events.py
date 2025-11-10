@@ -25,7 +25,7 @@ from typing import Dict, Any, List
 import matplotlib.pyplot as plt
 import sys
 
-from SIM_lib import _parse_param, e_n, _create_param_directory_name, send_email, convert_det_to_list, write_yaml, complex_pulse_list
+from SIM_lib import _parse_param, e_n, _create_param_directory_name, convert_det_to_list, write_yaml, complex_pulse_list
 
 
 from TTE_SIM_v2 import Function_MVT_analysis, print_nested_dict, check_param_consistency, flatten_dict, GBM_MVT_analysis_det, GBM_MVT_analysis_complex, Function_MVT_analysis_complex
@@ -411,16 +411,6 @@ def main(config_filepath: str):
                 except Exception as e:
                     logging.error(f"An analysis task failed in the pool: {e}", exc_info=True)
         logging.info(f"✅ Analysis complete! Summary saved to:\n{final_results_csv_path}")
-
-    email_body = f"Analysis complete for {config_filepath}! The summary is attached and also saved to:\n{final_results_csv_path}"
-
-    # Call the function
-    
-    send_email(
-        subject="Analysis Complete: Results Attached",
-        body=email_body,
-        attachment_path=final_results_csv_path
-    )
     
 
 

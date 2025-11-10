@@ -1,3 +1,5 @@
+#import sys, os
+#sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from haar_power_mod import haar_power_mod
 from numpy import loadtxt
 import yaml
@@ -5,6 +7,8 @@ import yaml
 import numpy as np
 import warnings
 from SIM_lib import run_mvt_in_subprocess
+
+
 
 
 SIM_CONFIG_FILE = 'simulations_ALL.yaml'
@@ -42,9 +46,11 @@ mvt_res = run_mvt_in_subprocess(
                             doplot=1,
                             file_name='Best_second'
                         )
-mvt_val = float(mvt_res[2]) #* 1000
-mvt_err = float(mvt_res[3]) #* 1000
+print("MVT with your specified HAAR environment complete.")
+print(mvt_res)
+mvt_val = mvt_res['mvt_ms'] / 1000
+mvt_err = float(mvt_res['mvt_err_ms']) / 1000
 print(f"MVT value: {mvt_val} s,\nMVT error: {mvt_err} s")
 print("please check the PLOT 'Best_second_haar_mod.png'.")
 
-#print("\n--- Analysis Complete: Final Result ---")
+print("\n--- Analysis Complete: Final Result ---")

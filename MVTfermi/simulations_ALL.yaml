@@ -8,7 +8,7 @@ project_settings:
   data_path: '001_DATA' # where your simulation data will be stored
   results_path: '01_ANALYSIS_RESULTS' # where your analysis results will be stored
   haar_python_path: "/Users/sbala/anaconda3/bin/python" # path to the Haar Python executable
-  #pulse_path: 
+
 
 # ===================================================================
 #  2. PULSE DEFINITIONS (The "Library")
@@ -19,87 +19,81 @@ pulse_definitions:
   gaussian:
     parameters:
       sigma: [0.1, 0.03, 0.01, 0.003]
-      #sigma: [0.05, 0.01] # [0.01, 0.05, 0.1, 0.5, 1.0]
+    
     constants:
       center_time: 0.0
 
   triangular:
     parameters:
-      width: [0.1] #, 0.02] # 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0] #[0.01, 0.05] #, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-      #peak_time_ratio: [0.5, .2, 0.8]
+      width: [0.1] 
+      peak_time_ratio: [0.5, .2, 0.8]
     constants:
       center_time: 0.0
-      peak_time_ratio: 0.5
+
 
   norris:
     parameters:
-      rise_time: [0.01, 0.005] #1, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
-      decay_time: [0.01] #, 0.02, 0.05, 0.1, 0.2, 0.5]
+      rise_time: [0.1, 0.01, 0.005] 
+      decay_time: [0.01, 0.005 ] 
     constants:
       start_time: 0.0
   
   fred:
     parameters:
-      # NOTE: Combined values from both of your original campaigns
-      rise_time: [.1] #[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-      decay_time: [.2] #[0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+      rise_time: [.1] 
+      decay_time: [.2] 
     constants:
       start_time: 0.0
 
   lognormal:
     parameters:
-      sigma: [.1] #[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-      center_time: [.2] #[0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+      sigma: [.1] 
+      center_time: [.2] 
   
   complex_pulse:
     parameters:
-      # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [5] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] 
+      overall_amplitude: [5] 
     constants: {}
 
   complex_pulse_long:
     parameters:
-      # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [5] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] 
+      overall_amplitude: [5] 
     constants: {}
 
   complex_pulse_short:
     parameters:
-      # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [1] #, 2, 3, 4, 5, 10, 50.0, 100.0] #[100] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] 
+      overall_amplitude: [1] 
     constants: {}
   
   complex_pulse_short_2p10ms:
     parameters:
-      # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [5] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] 
+      overall_amplitude: [5] 
     constants: {}
 
   complex_pulse_short_2p3ms:
     parameters:
-      # This is the second argument to your wrapper ('position')
-      position: [6.2] #, 4.5] #, 6.0, 8.0, 10, 12, 14] #, 6.0]
-      overall_amplitude: [100] #[1, 2, 3, 4, 5, 10] #, 10.0, 20.0, 50.0, 100.0]
+      position: [6.2] 
+      overall_amplitude: [100] 
     constants: {}
 
 # ===================================================================
 #  3. SIMULATION CAMPAIGNS
 # ===================================================================
+
+
 # Each campaign defines a set of simulations to generate.
 # This section is read by 'generate_events.py'.
-
-
 # ______________________________________
 #  GBM
 # ______________________________________
 simulation_campaigns:
 - name: GBM_Pulse_Simulation
   type: gbm
-  enabled: true
+  enabled: false
 
   # Parameters that vary for this entire campaign
   parameters:
@@ -124,23 +118,24 @@ simulation_campaigns:
 
   # List the pulse shapes from the library you want to run in this campaign.
   pulses_to_run:
-    - gaussian
+    # - gaussian
     # - triangular
     # - norris
     # - fred
     # - lognormal
     # - complex_pulse  # Example of enabling a pulse for this campaign
+
+
 # ______________________________________
 #  Functions
 # ______________________________________
 
 - name: FUNCTION_Pulse_Simulation
   type: function
-  enabled: false
+  enabled: true
 
   parameters:
-    #peak_amplitude: [2] # [0.01, 1, 2, 3, 4, 5]  #[0.02, 0.03, 0.04, 0.05, 0.1, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50, 100, 200, 300, 400, 500]
-    peak_amplitude: [0.01] #, 0.02, 0.03, 0.04, 0.05, 0.1, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 20, 25, 30, 40, 50] #, 100, 200, 300, 400, 500]
+    peak_amplitude: [5] 
 
   constants:
     trigger_number: 99999999
@@ -152,13 +147,13 @@ simulation_campaigns:
     scale_factor: 1000
     random_seed: 37
     grid_resolution: 0.00001
-    total_sim: 1
+    total_sim: 30
 
   # This campaign will only run the gaussian and norris simulations.
   pulses_to_run:
     # - gaussian
     # - triangular  # Example of disabling a pulse for this campaign
-    # - norris
+    - norris
     # - fred
     # - lognormal
     # - complex_pulse  # Example of enabling a pulse for this campaign
@@ -175,10 +170,6 @@ analysis_settings:
   # The analysis script will test every event file against these bin widths
   bin_widths_to_analyze_ms: [0.1] #, 0.1] #, 0.001] #, 0.001] #, 0.01]
   snr_timescales: [0.010, 0.016, 0.032, 0.064, 0.128, 0.256]
-  snr_bw_ms: [16, 32, 64]  # The bin width (in ms) to use for the detector selection optimization
-  #detector_selections: [['n0'], ['n2', 'na'], ['all']]
-  detector_selections: [['n2'], ['n2', 'na'], ['n2', 'na', 'n1'], ['n2', 'na', 'n1', 'n9'], ['n2', 'na', 'n1', 'n9', 'n5'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb', 'n0'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb', 'n0', 'n8'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb', 'n0', 'n8', 'n4'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb', 'n0', 'n8', 'n4', 'n3'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb', 'n0', 'n8', 'n4', 'n3', 'n7'], ['n2', 'na', 'n1', 'n9', 'n5', 'nb', 'n0', 'n8', 'n4', 'n3', 'n7', 'n6']]
+  detector_selections: [['n2'], ['n2', 'na'], ['n2', 'na', 'n1'], ['all']]
   extra_pulse: { pulse_shape: 'gaussian', sigma: 0.003, center_time: 0.0 }
-  mvt_time_window: 0.5 
-  mvt_step_size: 0.5
-  #detector_selections: [ ['all'] ]
+

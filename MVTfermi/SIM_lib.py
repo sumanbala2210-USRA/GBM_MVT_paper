@@ -26,7 +26,6 @@ from sim_functions import gaussian2, triangular, constant, norris, fred, lognorm
 # ========= Import necessary libraries =========
 
 
-GMAIL_FILE = 'config_mail.yaml'
 #HAAR_ENV_PATH = "/Users/sbala/anaconda3/bin/python"
 WRAPPER_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), 'run_haar_power_mod.py')
 
@@ -104,74 +103,6 @@ def run_mvt_in_subprocess(
         except Exception as e:
             logging.error(f"An unexpected error occurred in run_mvt_in_subprocess: {e}")
             return []
-
-
-def send_email(subject='Python Script Completed', body='!!', attachment_path=None):
-    """
-    Sends an email to a list of recipients with an optional attachment.
-
-    Args:
-        recipients (list): A list of email addresses to send the email to.
-        subject (str): The subject line of the email.
-        body (str): The plain text content of the email.
-        attachment_path (str, optional): The file path of the file to attach. Defaults to None.
-    """
-    msg = EmailMessage()
-    msg['Subject'] = subject
-    msg['From'] = '2210sumaanbala@gmail.com'
-    # Join the list of recipients into a single comma-separated string
-    recipients = ['sumanbala2210@gmail.com', 'pv0004@uah.edu']
-    msg['To'] = ', '.join(recipients)
-    msg.set_content(body)
-
-    # --- Attach the file if a path is provided ---
-    if attachment_path and os.path.exists(attachment_path):
-        # Guess the MIME type of the file
-        ctype, encoding = mimetypes.guess_type(attachment_path)
-        if ctype is None or encoding is not None:
-            ctype = 'application/octet-stream'  # Default for unknown file types
-        
-        maintype, subtype = ctype.split('/', 1)
-
-        with open(attachment_path, 'rb') as fp:
-            msg.add_attachment(fp.read(),
-                               maintype=maintype,
-                               subtype=subtype,
-                               filename=os.path.basename(attachment_path))
-
-    # --- Login and send the email ---
-    with open(GMAIL_FILE, 'r') as f:
-        config_mail = yaml.safe_load(f)
-
-    gmail_user = config_mail['gmail_user']
-    gmail_password = config_mail['gmail_password'] # Use your Gmail App Password
-
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(gmail_user, gmail_password)
-            smtp.send_message(msg)
-        print(f"Email successfully sent to: {', '.join(recipients)}")
-    except Exception as e:
-        print(f"Failed to send email. Error: {e}")
-
-
-def send_email_old(input='!!'):
-    msg = EmailMessage()
-    msg['Subject'] = 'Python Script Completed'
-    msg['From'] = '2210sumaanbala@gmail.com'
-    msg['To'] = 'sumanbala2210@gmail.com'
-    msg.set_content(f'Hey, your script has finished running!\n{input}')
-
-    with open(GMAIL_FILE, 'r') as f:
-        config_mail = yaml.safe_load(f)
-
-    # Use your Gmail App Password here
-    gmail_user = config_mail['gmail_user']
-    gmail_password = config_mail['gmail_password']
-
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        smtp.login(gmail_user, gmail_password)
-        smtp.send_message(msg)
 
 
 def convert_det_to_list(det_string):

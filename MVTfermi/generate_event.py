@@ -25,8 +25,7 @@ from tqdm import tqdm
 from typing import Dict, Any
 # ========= Import necessary libraries =========
 import itertools
-from email.message import EmailMessage
-from SIM_lib import _parse_param, e_n, _create_param_directory_name, PULSE_MODEL_MAP, SIMULATION_REGISTRY, write_yaml, convert_det_to_list, send_email, complex_pulse_list
+from SIM_lib import _parse_param, e_n, _create_param_directory_name, PULSE_MODEL_MAP, SIMULATION_REGISTRY, write_yaml, convert_det_to_list, complex_pulse_list
 
 from TTE_SIM_v2 import generate_function_events, calculate_adaptive_simulation_params, create_final_plot, create_final_gbm_plot, generate_gbm_events_dets, sim_gbm_name_format, print_nested_dict#complex_pulse_example
 # Assume your original simulation and helper functions are in a library
@@ -351,11 +350,6 @@ def main(config_filepath: str):
                 logging.error(f"A generation task failed: {e}", exc_info=True)
 
     logging.info("✅ All event files have been generated.")
-    email_body = f"Fine generation is complete for {config_filepath}!"
-    send_email(
-        subject="All files have been generated successfully!!",
-        body=email_body
-    )
 
 if __name__ == '__main__':
     # Set up the command-line argument parser
