@@ -8,7 +8,13 @@ This is NOT the development repository — this snapshot is frozen only to repro
 
 ## Two Python Environments Required
 
-This work uses **two separate Python environments**.
+**IMPORTANT — Please install `conda` or `miniconda` first.**  
+The HAAR environment (ENV-B) requires Python 3.10.8, which is easiest to create with conda.  
+(ENV-A may be created using either conda *or* venv.)
+
+
+
+1. Install `CONDA` or `MINICONDA`
 
 ### ENV‑A (main analysis environment)
 
@@ -17,7 +23,7 @@ You may install this environment either **with conda** or **without conda**.
 #### Option 1 — using conda
 
 ```bash
-conda create -n mvt_fermi python=3.10.8
+conda create -n mvt_fermi python=3.10
 conda activate mvt_fermi
 pip install .
 ```
