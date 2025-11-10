@@ -229,8 +229,7 @@ All results are saved in a timestamped folder within `01_ANALYSIS_RESULTS` to pr
     │       └── amp_100-pos_3.0/
     │           └── ...
     │
-    ├── function_complex_pulse_summary.csv   <-- Clean, symmetric summary for this group
-    ├── function_gaussian_summary.csv        <-- Clean, symmetric summary for another group
+    ├── analysis_25_11_02-11_50.log     <-- log file
     └── final_summary_results.csv       <-- Master summary with all results
 ```
 * **Intermediate Files**: For each analysis run, the script saves a detailed CSV with per-realization results, a parameter file, and a plot of the MVT distribution.
