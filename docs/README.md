@@ -27,11 +27,15 @@ This toolkit provides a powerful, configuration-driven pipeline to perform high-
     ```
 ## Two Python Environments Required
 
-This work uses **two separate Python environments**.
+**IMPORTANT — Please install `conda` or `miniconda` first.**  
+The HAAR environment (ENV-B) requires Python 3.10.8, which is easiest to create with conda.  
+(ENV-A may be created using either conda *or* venv.)
+
+2. Install `CONDA` or `MINICONDA`
 
 ### ENV‑A (main analysis environment)
 
-2.  **Install the core package:**
+3.  **Install the core package:**
     This will install the main library and all essential dependencies.
     ```bash
     conda create -n mvt_fermi
@@ -39,7 +43,7 @@ This work uses **two separate Python environments**.
     pip install .
     ```
 
-3.  **Install optional dependencies:**
+4.  **Install optional dependencies:**
     For visualization and interactive analysis, install the optional UI and development packages.
     ```bash
     pip install .[ui,dev]
@@ -50,7 +54,7 @@ This work uses **two separate Python environments**.
 ### ENV‑B (HAAR environment)
 The HAAR MVT estimator must run under specific versions to reproduce the published values.
 
-4. **Example HAAR environment creation:**
+5. **Example HAAR environment creation:**
 
 ```bash
 conda create -n haar_env python=3.10.8
@@ -58,12 +62,12 @@ conda activate haar_env
 pip install -r requirements_haar.txt
 ```
 
-5. **Find the python executable for ENV‑B:**
+6. **Find the python executable for ENV‑B:**
 
 ```bash
 which python
 ```
-6. **Then set that path inside `simulations_ALL.yaml`:**
+7. **Then set that path inside `simulations_ALL.yaml`:**
 
 ```yaml
 project_settings:
