@@ -17,7 +17,7 @@ You may install this environment either **with conda** or **without conda**.
 #### Option 1 — using conda
 
 ```bash
-conda create -n mvt_fermi python=3.10
+conda create -n mvt_fermi python=3.10.8
 conda activate mvt_fermi
 pip install .
 ```
