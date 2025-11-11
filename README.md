@@ -84,7 +84,7 @@ The helper script `classify_mvt_value.py` can be used to compare a new GRB MVT m
 Example:
 
 ```bash
-python classify_mvt_valie.py --mvt 5.0 --snr 120.0
+python classify_mvt_value.py --mvt 5.0 --snr 120.0
 python classify_mvt_value.py --mvt 5.0 --snr 120.0 --mode plot
 ```
 
