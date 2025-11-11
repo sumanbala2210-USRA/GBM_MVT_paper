@@ -20,32 +20,16 @@ output_pdf = f"{csv_filename.split('_')[0]}_{output_base_name}.pdf"
 
 # --- 2. Publication Style Configuration ---
 plt.rcParams.update({
-    'font.size': 14,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 14,
-    'ytick.labelsize': 14,
-    'legend.fontsize': 10,
-    'legend.title_fontsize': 12,
-    'font.family': 'serif'
-})
-plt.rcParams.update({
-    'font.size': 14,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 14,
-    'ytick.labelsize': 14,
-    'legend.fontsize': 14,
-    'legend.title_fontsize': 16,
-    'font.family': 'serif'
-})
-plt.rcParams.update({
     'font.size': 18,
     'axes.labelsize': 20,
     'xtick.labelsize': 18,
     'ytick.labelsize': 18,
-    'legend.fontsize': 18,
+    'legend.fontsize': 20,
     'legend.title_fontsize': 20,
     'font.family': 'serif'
 })
+
+
 # --- 3. Data Preparation ---
 try:
     df = pd.read_csv(csv_filename)
@@ -137,7 +121,7 @@ for s in unique_sigmas:
                                          linestyle='None',
                                          markeredgewidth=1.0))
 # MODIFIED: Moved legend to upper left to avoid colorbar
-ax.legend(handles=marker_legend_elements, title='$\\sigma$ (ms)', loc='upper right', ncol=3)
+ax.legend(handles=marker_legend_elements, title='$\\sigma$ (ms)', loc='upper right', ncol=4)
 
 # MODIFIED: Added 'pad' argument to reduce gap and created a mappable object
 if scatter_handle:

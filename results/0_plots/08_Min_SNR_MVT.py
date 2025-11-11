@@ -207,7 +207,7 @@ def plot_envelope_publication(df_annotated, no_err_points, err_aware_points, pul
     FONT_TITLE = 22
     FONT_LABEL = 20
     FONT_TICK = 18
-    FONT_LEGEND = 14
+    FONT_LEGEND = 16
     alpha_bg = 0.5  # Transparency for background points
     color_fill = 'orange'  # Color for CI shading
     color_min_snr = 'red'  # Color for Min SNR point
@@ -343,14 +343,14 @@ def plot_envelope_publication(df_annotated, no_err_points, err_aware_points, pul
                 # --- Plot shaded region (Unchanged) ---
                 h_fill = ax1.fill_betweenx(
                     10**x_grid_log, 10**lower_bound_log, 10**upper_bound_log,
-                    color=color_fill, alpha=0.2, zorder=1, label='95% CI (Bootstrap)'
+                    color=color_fill, alpha=0.2, zorder=1, label='95% CI'
                 )
                 handles.append(h_fill)
                 
                 # --- Plot best-fit line (Unchanged) ---
                 h_line, = ax1.plot(
                     10**median_fit_log, 10**x_grid_log,
-                    linestyle='-', color=color_min_snr, lw=3, zorder=11, label='2nd Order Fit (Median)'
+                    linestyle='-', color=color_min_snr, lw=3, zorder=11, label='2nd Order Fit'
                 )
                 handles.append(h_line)
     
@@ -363,7 +363,7 @@ def plot_envelope_publication(df_annotated, no_err_points, err_aware_points, pul
     
     # --- 8. Create Legend and Colorbar ---
     # Create the main legend
-    ax1.legend(handles=handles[::-1], fontsize=FONT_LEGEND, loc='lower right', ncol=3) 
+    ax1.legend(handles=handles[::-1], fontsize=FONT_LEGEND, loc='lower left', ncol=3) 
 
     # --- [MODIFIED] Add Horizontal Colorbar ---
     if use_colorbar:
@@ -380,7 +380,7 @@ def plot_envelope_publication(df_annotated, no_err_points, err_aware_points, pul
         cbar.ax.tick_params(labelsize=FONT_TICK)
 
     # --- 9. Save Plot (Unchanged) ---
-    plt.ylim(bottom=0.1)
+    plt.ylim(0.09, 2000)
     # Use standard tight_layout, it works better with location='top'
     plt.tight_layout() 
     plt.savefig(output_filename, dpi=300)

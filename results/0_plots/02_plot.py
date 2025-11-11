@@ -18,12 +18,12 @@ output_pdf = f"{csv_filename[0:2]}_{output_base_name}.pdf"
 
 # --- 2. Publication Style Configuration ---
 plt.rcParams.update({
-    'font.size': 14,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 14,
-    'ytick.labelsize': 14,
-    'legend.fontsize': 14,
-    'legend.title_fontsize': 16,
+    'font.size': 18,
+    'axes.labelsize': 20,
+    'xtick.labelsize': 18,
+    'ytick.labelsize': 18,
+    'legend.fontsize': 16,
+    'legend.title_fontsize': 18,
     'font.family': 'serif'
 })
 
@@ -175,9 +175,10 @@ y_label = y_col.replace('_', ' ').title()
 y_label = y_label.replace('Median Mvt Ms', 'Median MVT (ms)')
 ax.set_xlabel(x_col.replace('_', ' ').title())
 ax.set_ylabel(y_label)
+#ax.set_ylim(0.5, 10000)
 
 # A simple legend is now sufficient as labels are set in the plot loop
-ax.legend(title='$\\sigma$ (ms)', ncol=2, loc='upper right', bbox_to_anchor=(1, 1))
+ax.legend(title='$\\sigma$ (ms)', ncol=4, loc='upper right', bbox_to_anchor=(1, 1))
 ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 plt.tight_layout()
 

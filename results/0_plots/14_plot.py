@@ -23,7 +23,7 @@ output_pdf = f"{output_base_name}.pdf"
 # --- 2. Publication Style Configuration ---
 plt.rcParams.update({
     'font.size': 24, 'axes.labelsize': 24, 'xtick.labelsize': 20,
-    'ytick.labelsize': 22, 'legend.fontsize': 18, 'legend.title_fontsize': 20,
+    'ytick.labelsize': 22, 'legend.fontsize': 22, 'legend.title_fontsize': 22,
     'font.family': 'serif'
 })
 
@@ -114,7 +114,7 @@ for i, rise_time in enumerate(rise_times_bottom):
                 fillstyle=marker_props.get('fillstyle'), color=point_color,
                 capsize=3, linestyle='none', alpha=1, markeredgecolor='black', markeredgewidth=0.2
             )
-    ax.text(0.02, 0.06, f'Rise Time {rise_time} ms', transform=ax.transAxes, fontsize=22,
+    ax.text(0.03, 0.06, f'Rise Time {rise_time} ms', transform=ax.transAxes, fontsize=24,
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
 # --- 8. Final Touches: Legends, Labels, and Layout ---
@@ -126,7 +126,7 @@ color_legend_elements = [Line2D([0], [0], color=color_map.get(d, 'black'), lw=4,
                          for d in sorted(df_top[decay_time_col].unique())]
 
 axes[0].legend(handles=marker_legend_elements, title='Bin Width (ms)', loc='upper right', ncol=3)
-axes[1].legend(handles=color_legend_elements, title='Decay Time (ms)', loc='upper right')
+axes[1].legend(handles=color_legend_elements, title='Decay Time (ms)', loc='upper right', ncol=2)
 
 # --- Legend for the Bottom Plots ---
 axes[4].legend(handles=marker_legend_elements, title='Bin Width (ms)', loc='upper right', ncol=3)

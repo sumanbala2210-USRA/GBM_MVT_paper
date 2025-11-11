@@ -61,7 +61,7 @@ def classify_mvt_value(mvt_value, snr_value, interpolators, mvt_range_log):
     if snr_log < snr_lower_bound:
         classification = "Below 95% CI (Upper Limit)"
     elif snr_log > snr_upper_bound:
-        classification = "Above 95% CI (Robast Measurement)"
+        classification = "Above 95% CI (Robust Measurement)"
     else:
         classification = "Within 95% CI (Likely Upper Limit)"
         

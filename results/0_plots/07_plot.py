@@ -18,13 +18,7 @@ output_base_name = f"{csv_filename[0:2]}_MVT_vs_{x_col}_by_{group_col}"
 output_png = f"{output_base_name}.png"
 output_pdf = f"{output_base_name}.pdf"
 
-
 # --- 2. Publication Style Configuration ---
-plt.rcParams.update({
-    'font.size': 16, 'axes.labelsize': 16, 'xtick.labelsize': 14,
-    'ytick.labelsize': 14, 'legend.fontsize': 12, 'legend.title_fontsize': 14,
-    'font.family': 'serif'
-})
 
 plt.rcParams.update({
     'font.size': 18,
@@ -142,7 +136,7 @@ x_label = x_col.replace('_', ' ').title()
 y_label = y_col.replace('_', ' ').title()
 x_label = x_label.replace('Mvt Snr', r'SNR$_{{\mathrm{MVT}}}$')
 y_label = y_label.replace('Median Mvt Ms', 'Median MVT (ms)')
-ax.text(0.02, 0.05, 'Rise Time 10 ms', transform=ax.transAxes, fontsize=16, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+ax.text(0.02, 0.07, 'Rise Time 10 ms', transform=ax.transAxes, fontsize=20, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 ax.set_xlabel(x_label)
 ax.set_ylabel(y_label)
 ax.grid(True, which='both', linestyle='--', linewidth=0.5)

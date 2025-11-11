@@ -28,18 +28,14 @@ color_map = {
 }
 
 # --- 2. Publication Style Configuration ---
-plt.rcParams.update({
-    'font.size': 14, 'axes.labelsize': 16, 'xtick.labelsize': 14,
-    'ytick.labelsize': 14, 'legend.fontsize': 12, 'legend.title_fontsize': 14,
-    'font.family': 'serif'
-})
+
 
 plt.rcParams.update({
     'font.size': 18,
     'axes.labelsize': 20,
     'xtick.labelsize': 18,
     'ytick.labelsize': 18,
-    'legend.fontsize': 18,
+    'legend.fontsize': 20,
     'legend.title_fontsize': 20,
     'font.family': 'serif'
 })

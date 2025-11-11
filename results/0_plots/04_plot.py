@@ -27,8 +27,8 @@ plt.rcParams.update({
     'axes.labelsize': 20,
     'xtick.labelsize': 18,
     'ytick.labelsize': 18,
-    'legend.fontsize': 16,
-    'legend.title_fontsize': 16,
+    'legend.fontsize': 18,
+    'legend.title_fontsize': 18,
     'font.family': 'serif'
 })
 
@@ -119,8 +119,8 @@ ax.set_ylabel(y_label)
 
 # --- 7. Create Custom Dual Legends ---
 # Legend for Sigma (Color)
-color_legend_elements = [Line2D([0], [0], color=color_map.get(s, 'black'), lw=2, label=f'{s} ms') for s in all_possible_sigmas]
-legend1 = ax.legend(handles=color_legend_elements,  loc='lower left', ncol=2)
+color_legend_elements = [Line2D([0], [0], color=color_map.get(s, 'black'), lw=5, label=f'{s} ms') for s in all_possible_sigmas if s != 5.0]
+legend1 = ax.legend(handles=color_legend_elements,  loc='lower left', ncol=2, handlelength=0.5)
 
 # Legend for Bin Width (Marker)
 marker_legend_elements = [Line2D([0], [0], marker=marker_map.get(b, {'marker': 'o', 'fillstyle': 'full', 's_mult': 1.0})['marker'], color='gray', label=f'{b}',

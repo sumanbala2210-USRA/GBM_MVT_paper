@@ -17,19 +17,14 @@ output_pdf = f"{output_base_name}.pdf"
 
 
 # --- 2. Publication Style Configuration ---
-plt.rcParams.update({
-    'font.size': 14, 'axes.labelsize': 16, 'xtick.labelsize': 14,
-    'ytick.labelsize': 14, 'legend.fontsize': 12, 'legend.title_fontsize': 14,
-    'font.family': 'serif'
-})
 
 plt.rcParams.update({
     'font.size': 18,
     'axes.labelsize': 18,
     'xtick.labelsize': 18,
     'ytick.labelsize': 18,
-    'legend.fontsize': 14,
-    'legend.title_fontsize': 14,
+    'legend.fontsize': 16,
+    'legend.title_fontsize': 18,
     'font.family': 'serif'
 })
 
@@ -151,7 +146,7 @@ x_label = x_label.replace('Mvt Snr', r'SNR$_{{\mathrm{MVT}}}$')
 y_label = y_label.replace('Median Mvt Ms', 'Median MVT (ms)')
 ax.set_xlabel(x_label)
 ax.set_ylabel(y_label)
-ax.text(0.02, 0.05, 'Peak Time Ratio = 0.5', transform=ax.transAxes, fontsize=16, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+ax.text(0.02, 0.05, 'Peak Time Ratio = 0.5', transform=ax.transAxes, fontsize=20, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
 plt.tight_layout()
