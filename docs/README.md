@@ -238,7 +238,7 @@ All results are saved in a timestamped folder within `01_ANALYSIS_RESULTS` to pr
 ---
 ## Classification of external MVT values
 
-The helper script `classify_mvt_value.py` can be used to compare a new GRB MVT measurement against the validation boundary curve.
+The helper script `classify_mvt_value.py` can be used to compare a new GRB MVT measurement against the `MVT validation curve`.
 
 Example:
 
@@ -247,7 +247,7 @@ python classify_mvt_value.py --mvt 5.0 --snr 120.0
 python classify_mvt_value.py --mvt 5.0 --snr 120.0 --mode plot
 ```
 
-This returns which side of the validation boundary the point belongs to. 
+This returns which side of the `MVT validation curve` the point belongs to. 
 
 ---
 ## License
