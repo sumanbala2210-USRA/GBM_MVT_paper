@@ -243,8 +243,8 @@ The helper script `classify_mvt_point.py` can be used to compare a new GRB MVT m
 Example:
 
 ```bash
-python classify_mvt_point.py --mvt_ms 5.0 --snr_mvt 120.0
-python classify_mvt_point.py --mvt_ms 5.0 --snr_mvt 120.0 --mode plot
+python classify_mvt_point.py --mvt 5.0 --snr 120.0
+python classify_mvt_point.py --mvt 5.0 --snr 120.0 --mode plot
 ```
 
 This returns which side of the validation boundary the point belongs to. 
