@@ -98,3 +98,5 @@ For complete detailed usage (generate_event, analyze_events, classify_mvt_value,
 
 ### docs/README_full.md
 
+---
+
