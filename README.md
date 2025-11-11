@@ -96,7 +96,7 @@ This returns which side of the `MVT validation Curve` the point belongs to.
 
 For complete detailed usage (generate_event, analyze_events, classify_mvt_value, etc.) see:
 
-### docs/README_full.md
+### `docs/README_full.md`
 
 ---
 
