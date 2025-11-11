@@ -65,6 +65,18 @@ def main():
     "Above 95% CI (Robust Measurement)"    : "green",   # robust
     }
 
+    # --- Point map by class ---
+    point_map = {
+    "Below 95% CI (Upper Limit)"           : "v",     # UL
+    "Within 95% CI (Likely Upper Limit)"   : "D",    # LUL
+    "Above 95% CI (Robust Measurement)"    : "*",   # robust
+    }
+
+    size_map = {
+    "Below 95% CI (Upper Limit)"           : 12,     # UL
+    "Within 95% CI (Likely Upper Limit)"   : 10,    # LUL
+    "Above 95% CI (Robust Measurement)"    : 16,   # robust
+    }
 
     # --- Plot GRB points (with optional vertical error bars from MVT errors) ---
     for name, v in grbs.items():
@@ -79,12 +91,14 @@ def main():
 
         cls = classes[name]
         color = color_map.get(cls, "gray")
+        point = point_map.get(cls, "o")
+        size = size_map.get(cls, 10)
 
-        # errorbar draws the marker and optional vertical bars
+
         ax.errorbar(
-            x, y, yerr=yerr, fmt='o', ms=7, color=color, ecolor=color,
-            elinewidth=1.5, capsize=3, mec='k', mew=0.8, zorder=10
-        )
+                x, y, yerr=yerr, fmt=point, ms=size, color=color, ecolor=color,
+                elinewidth=1.0, capsize=2, mec='k', mew=0.5, zorder=10
+            )
         # label slightly to the right
         #ax.text(x * 1.06, y, name, fontsize=10, va='center')
         #ax.text(x * 1.06, y, f"{name} ({tag_map[cls]})", fontsize=10, va='center')
@@ -106,9 +120,10 @@ def main():
     ax.grid(True, which='both', ls='--', alpha=0.5)
 
     # Legend for classes
+    
     handles = [
-        plt.Line2D([0],[0], marker='o', color='w', markerfacecolor=color_map[k],
-                   markeredgecolor='k', markersize=9, label=k)
+        plt.Line2D([0],[0], marker=point_map[k], color='w', markerfacecolor=color_map[k],
+                   markeredgecolor='k', markersize=size_map[k], label=k)
         for k in color_map.keys()
     ]
     # plus band/median entries
