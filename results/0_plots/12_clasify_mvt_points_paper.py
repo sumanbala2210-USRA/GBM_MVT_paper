@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from clasify_mvt_point import load_model, classify_mvt_point
+from clasify_mvt_value import load_model, classify_mvt_value
 
 # ---- your data ----
 grbs = {
@@ -29,7 +29,7 @@ def main():
     # Classify all first (also capture bounds if you want)
     classes = {}
     for name, v in grbs.items():
-        c, _ = classify_mvt_point(v["median mvt"], v["SNR MVT"], interpolators, mvt_range_log)
+        c, _ = classify_mvt_value(v["median mvt"], v["SNR MVT"], interpolators, mvt_range_log)
         # Fix small typo in original label
         c = c.replace("Robast", "Robust")
         classes[name] = c

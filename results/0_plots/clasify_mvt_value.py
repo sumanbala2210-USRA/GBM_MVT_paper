@@ -1,4 +1,4 @@
-#clasify_mvt_point.py
+#clasify_mvt_value.py
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
@@ -40,9 +40,9 @@ def load_model():
         print(f"--- ERROR: Could not load fit model. Reason: {e} ---")
         return None
 
-def classify_mvt_point(mvt_value, snr_value, interpolators, mvt_range_log):
+def classify_mvt_value(mvt_value, snr_value, interpolators, mvt_range_log):
     """
-    Classifies a new (MVT, SNR) point against the loaded model.
+    Classifies a new (MVT, SNR) value against the loaded model.
     """
     mvt_log = np.log10(mvt_value)
     snr_log = np.log10(snr_value)
@@ -70,7 +70,7 @@ def classify_mvt_point(mvt_value, snr_value, interpolators, mvt_range_log):
 def plot_classification(mvt_value, snr_value, classification, bounds_log, 
                         interpolators, mvt_range_log, output_filename):
     """
-    Generates a simplified plot showing the fit and the new point.
+    Generates a simplified plot showing the fit and the new Value.
     """
     print(f"--- Generating plot: {output_filename} ---")
     
@@ -99,7 +99,7 @@ def plot_classification(mvt_value, snr_value, classification, bounds_log,
     ax.plot(
         snr_value, mvt_value,
         marker='*', ms=20, mec='cyan', mfc='#000000AA', mew=2,
-        zorder=20, label='Your Point'
+        zorder=20, label='Your Value'
     )
     
     # --- 3. Format the plot ---
@@ -120,7 +120,7 @@ def plot_classification(mvt_value, snr_value, classification, bounds_log,
     plt.tight_layout()
     plt.savefig(output_filename, dpi=150)
     plt.close(fig)
-    print(f"--- Plot saved to {output_filename} ---")
+    print(f"    Plot saved to {output_filename} ---")
 
 
 def main():
@@ -128,10 +128,10 @@ def main():
     Main entry point for the command-line tool.
     
     Usage:
-    python classify_mvt_point.py --mvt <value> --snr <value> [--mode <plot|classify>]
+    python classify_mvt_value.py --mvt <value> --snr <value> [--mode <plot|classify>]
     
     Example:
-    python classify_mvt_point.py --mvt 100 --snr 80 --mode plot
+    python classify_mvt_value.py --mvt 100 --snr 80 --mode plot
     """
     
     # --- 1. Parse Command-Line Arguments ---
@@ -159,7 +159,7 @@ def main():
         except IndexError:
             pass # Use default
 
-    print(f"--- Classifying point: MVT={mvt} ms, SNR={snr} (Mode: {mode}) ---")
+    print(f"--- Classifying Value: MVT={mvt} ms, SNR={snr} (Mode: {mode}) ---")
 
     # --- 2. Load Model ---
     model_data = load_model()
@@ -168,7 +168,7 @@ def main():
     interpolators, mvt_range_log = model_data
 
     # --- 3. Run Classification ---
-    classification, bounds_log = classify_mvt_point(mvt, snr, interpolators, mvt_range_log)
+    classification, bounds_log = classify_mvt_value(mvt, snr, interpolators, mvt_range_log)
     
     print(f"    Result: {classification}")
     
